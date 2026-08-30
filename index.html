@@ -301,7 +301,7 @@
     <div class="header">
       <div class="eyebrow">Agentic AI · GenAI · LLM Mastery</div>
       <h1 class="disp">Trail Log</h1>
-      <div class="subhead">The final merged roadmap — 22 phases from Git &amp; Linux through Interview Prep, ~10–12 months of focused work. Log each concept/build item, keep the streak alive, follow <b>Core Path</b> first. <b>Suggested pace:</b> approx. month range shown on each group in the sidebar, starting Aug 2026.</div>
+      <div class="subhead">The final merged roadmap — 22 phases from Git &amp; Linux through Interview Prep, with Python fundamentals added as a prerequisite before OOP. ~10–12 months of focused work. Log each concept/build item, keep the streak alive, follow <b>Core Path</b> first. <b>Suggested pace:</b> approx. month range shown on each group in the sidebar, starting Aug 2026.</div>
     </div>
 
     <div class="section-tabs" id="sectionTabs-agentic">
@@ -1094,7 +1094,7 @@ const DSA_REFERENCE = {
    ================================================================= */
 const AG_TOPICS = [
   {key:'p0-git', phase:1, name:'P0 · Git, Linux & Dev Env', tag:'core', pattern:'Branching/rebasing · shell · grep/sed/awk · env vars — 1 week'},
-  {key:'p1-python', phase:1, name:'P1 · Python for AI Engineering', tag:'core', pattern:'OOP · async/await · typing/pydantic · packaging — 3–4 weeks'},
+  {key:'p1-python', phase:1, name:'P1 · Python for AI Engineering', tag:'core', pattern:'Fundamentals mastery → OOP → async/await → typing/pydantic → packaging — 4–5 weeks'},
   {key:'p2-sql', phase:1, name:'P2 · SQL Mastery', tag:'core', pattern:'Joins · CTEs · window functions · indexing — 2–3 weeks'},
   {key:'p3-data', phase:1, name:'P3 · NumPy, Pandas, Scikit-learn', tag:'core', pattern:'Vectorized ops · groupby/agg · train/test split — 2 weeks'},
   {key:'p4-mldl', phase:1, name:'P4 · ML/DL Fundamentals', tag:'core', pattern:'Attention · tokenization · fine-tuning vs RAG — 2–3 weeks'},
@@ -1160,15 +1160,45 @@ const AG_RAW = {
   [7,'Build: shell automation script','Build'],
 ],
 'p1-python':[
-  [1,'OOP in Python','Concept'],
-  [2,'Error handling','Concept'],
-  [3,'Decorators','Concept'],
-  [4,'Generators','Concept'],
-  [5,'async / await','Concept'],
-  [6,'Typing & pydantic','Concept'],
-  [7,'Packaging','Concept'],
-  [8,'Multiprocessing basics','Concept'],
-  [9,'Build: async CLI tool with typed inputs/outputs','Build'],
+  [1,'Python fundamentals — variables, expressions, input/output, comments','Concept'],
+  [2,'Core data types — int, float, bool, str, None','Concept'],
+  [3,'Strings — indexing, slicing, methods, formatting, f-strings','Concept'],
+  [4,'Lists — indexing, slicing, methods, nested lists, copying','Concept'],
+  [5,'Tuples — packing, unpacking, immutability, use cases','Concept'],
+  [6,'Sets — uniqueness, set operations, membership, practical use','Concept'],
+  [7,'Dictionaries — keys/values, methods, nesting, iteration','Concept'],
+  [8,'Conditions — if/elif/else, truthiness, comparison and logical operators','Concept'],
+  [9,'Loops — for/while, range, enumerate, zip, break/continue','Concept'],
+  [10,'Comprehensions — list, dict and set comprehensions','Concept'],
+  [11,'Functions — parameters, return values, defaults, keyword arguments','Concept'],
+  [12,'*args and **kwargs — flexible function interfaces','Concept'],
+  [13,'Scope — local/global/nonlocal and LEGB lookup','Concept'],
+  [14,'Lambda, map(), filter(), reduce() and practical alternatives','Concept'],
+  [15,'Important Python built-ins — sorted, any, all, min, max, sum, len, isinstance','Concept'],
+  [16,'Mutable vs immutable objects — practical behavior and pitfalls','Concept'],
+  [17,'References, assignment, shallow copy vs deep copy','Concept'],
+  [18,'Modules, imports, packages and __name__ == "__main__"','Concept'],
+  [19,'Exceptions — try/except/else/finally, raising and custom exceptions','Concept'],
+  [20,'File handling — paths, text/JSON/CSV basics, context managers','Concept'],
+  [21,'Iterators — iter(), next() and the iterator protocol','Concept'],
+  [22,'Generators — yield, lazy evaluation and generator expressions','Concept'],
+  [23,'Practice: 20 Python fundamentals exercises without copying solutions','Practice'],
+  [24,'Practice: build a small CLI program using functions, collections, files and exceptions','Practice'],
+  [25,'Mastery test: solve practical Python problems from scratch with no notes','Practice'],
+  [26,'Mastery gate: explain core Python behavior and debug unfamiliar code independently','Practice'],
+  [27,'OOP in Python — classes, objects and __init__','Concept'],
+  [28,'OOP — instance/class/static methods, encapsulation and properties','Concept'],
+  [29,'OOP — inheritance, polymorphism, abstraction and composition','Concept'],
+  [30,'OOP — practical design patterns and clean class boundaries','Concept'],
+  [31,'Error handling — production-oriented exception design','Concept'],
+  [32,'Decorators','Concept'],
+  [33,'Generators — advanced patterns and practical use','Concept'],
+  [34,'async / await','Concept'],
+  [35,'Typing & pydantic','Concept'],
+  [36,'Packaging','Concept'],
+  [37,'Multiprocessing basics','Concept'],
+  [38,'Build: async CLI tool with typed inputs/outputs','Build'],
+  [39,'Mastery project: build a small Python service without following a tutorial','Build'],
 ],
 'p2-sql':[
   [1,'Relational model, SELECT/WHERE/ORDER BY/LIMIT','Concept'],
