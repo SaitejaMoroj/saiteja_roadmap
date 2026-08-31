@@ -1,0 +1,2289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trail Log — Mastery Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F1E7; --bg-grid: rgba(30,42,34,0.05); --panel:#FDFBF6; --ink:#1E2A22;
+    --ink-soft:#5B6B60; --ink-faint:#8B978D; --line: rgba(30,42,34,0.14);
+    --trail:#2F6F4E; --trail-soft: rgba(47,111,78,0.12); --gold:#C98A2B; --gold-soft: rgba(201,138,43,0.14);
+    --rust:#A63D2F; --rust-soft: rgba(166,61,47,0.12); --easy:#2F6F4E; --medium:#C98A2B; --hard:#A63D2F;
+    --azure:#2E5FA3; --violet:#6B4FA0;
+  }
+
+  
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: linear-gradient(var(--bg-grid) 1px, transparent 1px) 0 0/28px 28px,
+      linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px) 0 0/28px 28px, var(--bg);
+    color:var(--ink); font-family:'IBM Plex Sans', sans-serif; -webkit-font-smoothing:antialiased;
+  }
+  .disp{font-family:'Space Grotesk', sans-serif;}
+  .mono{font-family:'IBM Plex Mono', monospace;}
+  .app{max-width:1240px; margin:0 auto; padding:28px 20px 80px;}
+
+  /* App switcher */
+  .app-switch{display:flex; gap:8px; margin-bottom:20px; border:1px solid var(--line); border-radius:10px; padding:4px; background:var(--panel); width:fit-content;}
+  .app-switch button{
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px; letter-spacing:0.03em; padding:9px 16px; border-radius:7px;
+    border:none; background:transparent; color:var(--ink-soft); cursor:pointer; transition:.12s; font-weight:600;
+  }
+  .app-switch button.active{background:var(--trail); color:#fff;}
+  .app-switch button.active.agentic{background:var(--azure);}
+  .app-switch button:not(.active):hover{background:var(--trail-soft); color:var(--ink);}
+
+  .view{display:none;}
+  .view.visible{display:block;}
+
+  .header{margin-bottom:22px;}
+  .eyebrow{font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--trail); margin-bottom:8px; display:flex; gap:10px; align-items:center;}
+  .eyebrow::before{content:''; width:22px; height:1px; background:var(--trail);}
+  .view.agentic .eyebrow{color:var(--azure);}
+  .view.agentic .eyebrow::before{background:var(--azure);}
+  h1{font-size:32px; margin:0 0 6px; font-weight:700; letter-spacing:-0.01em;}
+  .subhead{color:var(--ink-soft); font-size:14.5px; max-width:640px; line-height:1.5;}
+
+  .stats{display:grid; grid-template-columns:repeat(4, 1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:10px; overflow:hidden; margin:22px 0 20px;}
+  .stat{background:var(--panel); padding:14px 16px;}
+  .stat .num{font-family:'Space Grotesk', sans-serif; font-size:26px; font-weight:700; line-height:1;}
+  .stat .label{font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.08em; margin-top:6px;}
+  .stat.streak .num{color:var(--gold);}
+  .stat.solved .num{color:var(--trail);}
+  .view.agentic .stat.solved .num{color:var(--azure);}
+
+  .ascent-log{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px 18px 14px; margin-bottom:22px;}
+  .ascent-log-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;}
+  .ascent-log-head h3{font-size:13px; margin:0; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-soft); font-weight:600;}
+  .ascent-log-head .scale{font-size:11px; color:var(--ink-faint); display:flex; align-items:center; gap:4px;}
+  .heatmap-wrap{overflow-x:auto; padding-bottom:2px;}
+  .heatmap{display:grid; grid-auto-flow:column; grid-template-rows:repeat(7, 12px); gap:3px;}
+  .cell{width:12px; height:12px; border-radius:3px; background:rgba(30,42,34,0.06);}
+  .cell[data-lvl="1"]{background:rgba(47,111,78,0.35);}
+  .cell[data-lvl="2"]{background:rgba(47,111,78,0.6);}
+  .cell[data-lvl="3"]{background:rgba(47,111,78,0.85);}
+  .cell[data-lvl="4"]{background:#2F6F4E;}
+  .scale-cell{width:10px;height:10px;border-radius:2px;}
+
+  .layout{display:grid; grid-template-columns:280px 1fr; gap:20px; align-items:start;}
+  @media (max-width: 860px){ .layout{grid-template-columns:1fr;} }
+
+  .sidebar{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; position:sticky; top:16px;}
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; padding:6px 6px 12px; border-bottom:1px solid var(--line); margin-bottom:10px;}
+  .toggle-label{font-size:12.5px; font-weight:500; line-height:1.35; color:var(--ink);}
+  .toggle-label span{display:block; font-size:10.5px; color:var(--ink-faint); font-weight:400; margin-top:2px;}
+  .switch{position:relative; width:38px; height:21px; flex:none; margin-left:10px;}
+  .switch input{opacity:0; width:0; height:0;}
+  .slider{position:absolute; inset:0; background:rgba(30,42,34,0.18); border-radius:20px; cursor:pointer; transition:.15s;}
+  .slider::before{content:''; position:absolute; width:15px; height:15px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.15s;}
+  input:checked + .slider{background:var(--trail);}
+  .view.agentic input:checked + .slider{background:var(--azure);}
+  input:checked + .slider::before{transform:translateX(17px);}
+
+  .search-box{width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:7px; font-size:13px; font-family:'IBM Plex Mono',monospace; background:var(--bg); color:var(--ink); margin-bottom:12px;}
+  .search-box:focus{outline:none; border-color:var(--trail);}
+  .view.agentic .search-box:focus{border-color:var(--azure);}
+
+  .phase-group{margin-bottom:4px;}
+  .phase-title{font-size:10.5px; text-transform:uppercase; letter-spacing:0.1em; color:var(--ink-faint); padding:10px 6px 4px; font-weight:600;}
+  .topic-item{display:flex; align-items:center; gap:9px; padding:8px 8px; border-radius:7px; cursor:pointer; font-size:13px; margin-bottom:1px; transition:.1s;}
+  .topic-item:hover{background:var(--trail-soft);}
+  .topic-item.active{background:var(--trail); color:#fff;}
+  .view.agentic .topic-item.active{background:var(--azure);}
+  .topic-item.active .topic-count{color:rgba(255,255,255,0.75);}
+  .topic-item.active .bar-bg{background:rgba(255,255,255,0.25);}
+  .topic-item.active .bar-fill{background:#fff;}
+  .topic-dot{width:6px;height:6px;border-radius:50%; flex:none;}
+  .topic-dot.core{background:var(--trail);}
+  .topic-dot.optional{background:var(--gold);}
+  .topic-dot.grind{background:var(--rust);}
+  .view.agentic .topic-dot.core{background:var(--azure);}
+  .topic-name{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .topic-count{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint); flex:none;}
+  .bar-bg{width:28px; height:4px; border-radius:2px; background:rgba(30,42,34,0.1); flex:none; overflow:hidden;}
+  .bar-fill{height:100%; background:var(--trail);}
+  .view.agentic .bar-fill{background:var(--azure);}
+
+  .main-panel{background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+  .panel-head{padding:18px 20px 14px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;}
+  .panel-head h2{font-size:19px; margin:0 0 4px;}
+  .panel-head .pattern{font-size:12.5px; color:var(--ink-soft);}
+  .panel-progress{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--trail); font-weight:600; white-space:nowrap;}
+  .view.agentic .panel-progress{color:var(--azure);}
+
+  .prob-table{width:100%; border-collapse:collapse;}
+  .prob-table thead th{text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-faint); padding:10px 20px; border-bottom:1px solid var(--line); font-weight:600;}
+  .prob-row{border-bottom:1px solid var(--line);}
+  .prob-row:last-child{border-bottom:none;}
+  .prob-row.solved{background:rgba(47,111,78,0.045);}
+  .view.agentic .prob-row.solved{background:rgba(46,95,163,0.045);}
+  .prob-row td{padding:11px 20px; font-size:13.5px; vertical-align:middle;}
+  .td-check{width:34px;}
+  .chk{width:18px; height:18px; accent-color:var(--trail); cursor:pointer;}
+  .view.agentic .chk{accent-color:var(--azure);}
+  .td-no{width:38px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; font-size:12px;}
+  .td-name{font-weight:500;}
+  .td-name.solved-text{color:var(--ink-soft); text-decoration:line-through; text-decoration-color:rgba(30,42,34,0.3); font-weight:400;}
+  .lc-tag{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint); margin-left:8px;}
+  .src-tag{font-family:'IBM Plex Mono',monospace; font-size:10px; color:#fff; background:var(--gold); padding:1px 6px; border-radius:5px; margin-left:8px; vertical-align:middle;}
+  .diff-badge{font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:2px 8px; border-radius:20px; font-weight:600; display:inline-block; white-space:nowrap;}
+  .diff-Easy{color:var(--easy); background:rgba(47,111,78,0.12);}
+  .diff-Medium{color:var(--medium); background:rgba(201,138,43,0.15);}
+  .diff-Hard{color:var(--hard); background:rgba(166,61,47,0.12);}
+  .diff-Concept{color:var(--azure); background:rgba(46,95,163,0.12);}
+  .diff-Build{color:var(--trail); background:rgba(47,111,78,0.12);}
+  .diff-Practice{color:var(--gold); background:rgba(201,138,43,0.15);}
+  .links{display:flex; gap:6px; flex-wrap:wrap;}
+  .link-btn{font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:4px 9px; border-radius:6px; text-decoration:none; border:1px solid var(--line); color:var(--ink-soft); white-space:nowrap; transition:.1s;}
+  .link-btn:hover{border-color:var(--trail); color:var(--trail); background:var(--trail-soft);}
+  .view.agentic .link-btn:hover{border-color:var(--azure); color:var(--azure); background:rgba(46,95,163,0.08);}
+
+  .app-switch button.active.sysdesign{background:var(--violet);}
+  .view.sysdesign .eyebrow{color:var(--violet);}
+  .view.sysdesign .eyebrow::before{background:var(--violet);}
+  .view.sysdesign .stat.solved .num{color:var(--violet);}
+  .view.sysdesign input:checked + .slider{background:var(--violet);}
+  .view.sysdesign .search-box:focus{border-color:var(--violet);}
+  .view.sysdesign .topic-item.active{background:var(--violet);}
+  .view.sysdesign .topic-dot.core{background:var(--violet);}
+  .view.sysdesign .bar-fill{background:var(--violet);}
+  .view.sysdesign .panel-progress{color:var(--violet);}
+  .view.sysdesign .prob-row.solved{background:rgba(107,79,160,0.045);}
+  .view.sysdesign .chk{accent-color:var(--violet);}
+  .view.sysdesign .link-btn:hover{border-color:var(--violet); color:var(--violet); background:rgba(107,79,160,0.08);}
+  .diff-Design{color:var(--violet); background:rgba(107,79,160,0.12);}
+
+  /* Section tabs (Roadmap / Realtime Projects) */
+  .section-tabs{display:flex; gap:6px; margin-bottom:18px; border-bottom:1px solid var(--line);}
+  .section-tab{font-family:'IBM Plex Mono',monospace; font-size:12.5px; font-weight:600; letter-spacing:0.02em; padding:10px 16px; border:none; background:transparent; color:var(--ink-soft); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:.12s;}
+  .section-tab:hover{color:var(--ink);}
+  .section-tab.active{color:var(--azure); border-bottom-color:var(--azure);}
+
+  .projects-intro{color:var(--ink-soft); font-size:14px; line-height:1.6; max-width:820px; margin-bottom:22px;}
+
+  .project-card{background:var(--panel); border:1px solid var(--line); border-radius:12px; margin-bottom:26px; overflow:hidden;}
+  .project-card-head{padding:22px 24px 18px; border-bottom:1px solid var(--line); background:rgba(46,95,163,0.04);}
+  .project-name{font-family:'Space Grotesk',sans-serif; font-size:21px; font-weight:700; color:var(--ink); margin:0 0 8px;}
+  .project-tagline{font-size:13.5px; color:var(--azure); font-weight:600; margin-bottom:10px;}
+  .project-overview{font-size:14px; color:var(--ink-soft); line-height:1.65; max-width:760px;}
+
+  .project-section{padding:20px 24px;}
+  .project-section + .project-section{border-top:1px solid var(--line);}
+  .project-section-title{font-family:'IBM Plex Mono',monospace; font-size:11.5px; text-transform:uppercase; letter-spacing:0.1em; color:var(--azure); font-weight:700; margin-bottom:14px; display:flex; align-items:center; gap:8px;}
+  .project-section-title::before{content:''; width:16px; height:1px; background:var(--azure);}
+
+  .req-item{padding:14px 16px; background:var(--bg); border:1px solid var(--line); border-radius:8px; margin-bottom:10px;}
+  .req-item:last-child{margin-bottom:0;}
+  .req-item-title{font-size:14px; font-weight:600; color:var(--ink); margin-bottom:6px; display:flex; gap:8px; align-items:baseline;}
+  .req-num{font-family:'IBM Plex Mono',monospace; font-size:11px; color:#fff; background:var(--azure); width:20px; height:20px; border-radius:5px; display:inline-flex; align-items:center; justify-content:center; flex:none;}
+  .req-item-body{font-size:13.5px; color:var(--ink-soft); line-height:1.65; padding-left:28px;}
+
+  .func-item{padding:16px 18px; background:var(--bg); border:1px solid var(--line); border-radius:8px; margin-bottom:12px;}
+  .func-item:last-child{margin-bottom:0;}
+  .func-name{font-size:14.5px; font-weight:700; color:var(--ink); margin-bottom:10px;}
+  .func-sub{margin-top:10px;}
+  .func-sub-label{font-family:'IBM Plex Mono',monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--gold); font-weight:700; margin-bottom:4px;}
+  .func-sub-label.how{color:var(--trail);}
+  .func-sub-body{font-size:13.5px; color:var(--ink-soft); line-height:1.65;}
+
+  .dataset-item{padding:14px 16px; background:var(--bg); border:1px solid var(--line); border-radius:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;}
+  .dataset-item:last-child{margin-bottom:0;}
+  .dataset-text{flex:1; min-width:220px;}
+  .dataset-name{font-size:14px; font-weight:600; color:var(--ink); margin-bottom:4px;}
+  .dataset-desc{font-size:13px; color:var(--ink-soft); line-height:1.6;}
+  .dataset-link{font-family:'IBM Plex Mono',monospace; font-size:11.5px; padding:7px 14px; border-radius:7px; text-decoration:none; background:var(--azure); color:#fff; white-space:nowrap; flex:none; transition:.12s;}
+  .dataset-link:hover{opacity:0.85;}
+
+  .stack-row{display:flex; flex-wrap:wrap; gap:8px;}
+  .stack-chip{font-family:'IBM Plex Mono',monospace; font-size:11.5px; padding:5px 12px; border-radius:20px; background:rgba(46,95,163,0.1); color:var(--azure); border:1px solid rgba(46,95,163,0.25);}
+
+  /* Resume tab theme (reuses --rust) */
+  .app-switch button.active.resume{background:var(--rust);}
+  .view.resume .eyebrow{color:var(--rust);}
+  .view.resume .eyebrow::before{background:var(--rust);}
+  .view.resume .stat.solved .num{color:var(--rust);}
+  .view.resume input:checked + .slider{background:var(--rust);}
+  .view.resume .search-box:focus{border-color:var(--rust);}
+  .view.resume .topic-item.active{background:var(--rust);}
+  .view.resume .topic-dot.core{background:var(--rust);}
+  .view.resume .bar-fill{background:var(--rust);}
+  .view.resume .panel-progress{color:var(--rust);}
+  .view.resume .prob-row.solved{background:rgba(166,61,47,0.045);}
+  .view.resume .chk{accent-color:var(--rust);}
+  .view.resume .link-btn:hover{border-color:var(--rust); color:var(--rust); background:rgba(166,61,47,0.08);}
+  .view.resume .section-tab.active{color:var(--rust); border-bottom-color:var(--rust);}
+  .view.resume .project-section-title{color:var(--rust);}
+  .view.resume .project-section-title::before{background:var(--rust);}
+  .view.resume .dataset-link{background:var(--rust);}
+  .view.resume .stack-chip{background:rgba(166,61,47,0.1); color:var(--rust); border-color:rgba(166,61,47,0.25);}
+  .view.resume .project-card-head{background:rgba(166,61,47,0.04);}
+
+  .refs-group{margin-bottom:26px;}
+  .refs-group-title{font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:700; color:var(--ink); margin-bottom:4px;}
+  .refs-group-sub{font-size:13px; color:var(--ink-soft); margin-bottom:12px; line-height:1.55; max-width:760px;}
+  .refs-caveat{background:rgba(166,61,47,0.06); border:1px solid rgba(166,61,47,0.2); border-radius:10px; padding:14px 18px; font-size:13px; color:var(--ink-soft); line-height:1.6; margin-bottom:22px;}
+  .refs-caveat b{color:var(--rust);}
+
+
+
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <div class="app-switch" id="appSwitch">
+    <button id="btnDsa" class="active">■ DSA Trail</button>
+    <button id="btnAgentic">◆ Agentic AI Trail</button>
+    <button id="btnSysdesign">▲ System Design &amp; CS Fundamentals</button>
+    <button id="btnResume">◆ Resume &amp; Portfolio</button>
+  </div>
+
+  <!-- ========================= DSA VIEW ========================= -->
+  <div class="view dsa visible" id="view-dsa">
+    <div class="header">
+      <div class="eyebrow">MAANG DSA · Pattern Trail</div>
+      <h1 class="disp">Trail Log</h1>
+      <div class="subhead">350+ problems, organized by pattern instead of topic-dump. Log each solve, keep the streak alive, and follow the marked <b>Core Path</b> first — the rest is there when you need it. <b>Suggested pace:</b> one phase per month starting Aug 2026 — see the month tag on each phase in the sidebar, roughly 2 topics/week within it.</div>
+    </div>
+
+    <div class="stats" id="stats-dsa"></div>
+
+    <div class="ascent-log">
+      <div class="ascent-log-head">
+        <h3>Ascent Log — last 18 weeks</h3>
+        <div class="scale">less <span class="scale-cell" style="background:rgba(30,42,34,0.06)"></span><span class="scale-cell" style="background:rgba(47,111,78,0.35)"></span><span class="scale-cell" style="background:rgba(47,111,78,0.6)"></span><span class="scale-cell" style="background:rgba(47,111,78,0.85)"></span><span class="scale-cell" style="background:#2F6F4E"></span> more</div>
+      </div>
+      <div class="heatmap-wrap"><div class="heatmap" id="heatmap-dsa"></div></div>
+    </div>
+
+    <div class="layout">
+      <div class="sidebar">
+        <div class="toggle-row">
+          <div class="toggle-label">Core Path only<span>~180 problems recommended before you start applying</span></div>
+          <label class="switch"><input type="checkbox" id="coreToggle-dsa" checked><span class="slider"></span></label>
+        </div>
+        <input type="text" class="search-box" id="searchBox-dsa" placeholder="Search problem or LC#...">
+        <div id="topicList-dsa"></div>
+      </div>
+
+      <div class="main-panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="disp" id="panelTitle-dsa">—</h2>
+            <div class="pattern" id="panelPattern-dsa">Select a topic from the trail</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="mode-tabs" id="modeTabs-dsa">
+              <button class="mode-tab active" data-mode="problems">Problems</button>
+              <button class="mode-tab" data-mode="class">Class</button>
+            </div>
+            <div class="panel-progress" id="panelProgress-dsa"></div>
+          </div>
+        </div>
+        <div id="tableWrap-dsa"></div>
+      </div>
+    </div>
+
+    <div class="footnote">
+      <b>Links:</b> LeetCode opens the problem directly. GFG and Coding Ninjas open a scoped search (their URLs aren't stable enough to hardcode reliably) — pick the matching result.
+      <b>Class:</b> click the "Class" tab on any topic to see the recommended faculty/playlist and notes for that pattern.
+      <b>Walmart bucket:</b> Walmart doesn't publish a tag list the way LeetCode does for Google/Amazon/Meta — this bucket is a best-effort set of commonly-reported questions, not a confirmed list.
+      <b>Storage:</b> your checkmarks and streak are saved to your account automatically and only visible to you.
+    </div>
+  </div>
+
+  <!-- ========================= AGENTIC AI VIEW ========================= -->
+  <div class="view agentic" id="view-agentic">
+    <div class="header">
+      <div class="eyebrow">Agentic AI · GenAI · LLM Mastery</div>
+      <h1 class="disp">Trail Log</h1>
+      <div class="subhead">The final merged roadmap — 22 phases from Git &amp; Linux through Interview Prep, with Python fundamentals added as a prerequisite before OOP. ~10–12 months of focused work. Log each concept/build item, keep the streak alive, follow <b>Core Path</b> first. <b>Suggested pace:</b> approx. month range shown on each group in the sidebar, starting Aug 2026.</div>
+    </div>
+
+    <div class="section-tabs" id="sectionTabs-agentic">
+      <button class="section-tab active" data-section="roadmap">Roadmap Trail</button>
+      <button class="section-tab" data-section="projects">★ Realtime Projects</button>
+    </div>
+
+    <div class="section-panel" id="section-roadmap-agentic">
+      <div class="stats" id="stats-agentic"></div>
+
+      <div class="ascent-log">
+        <div class="ascent-log-head">
+          <h3>Ascent Log — last 18 weeks</h3>
+          <div class="scale">less <span class="scale-cell" style="background:rgba(30,42,34,0.06)"></span><span class="scale-cell" style="background:rgba(47,111,78,0.35)"></span><span class="scale-cell" style="background:rgba(47,111,78,0.6)"></span><span class="scale-cell" style="background:rgba(47,111,78,0.85)"></span><span class="scale-cell" style="background:#2F6F4E"></span> more</div>
+        </div>
+        <div class="heatmap-wrap"><div class="heatmap" id="heatmap-agentic"></div></div>
+      </div>
+
+      <div class="layout">
+        <div class="sidebar">
+          <div class="toggle-row">
+            <div class="toggle-label">Core Path only<span>All 22 phases from the final merged roadmap</span></div>
+            <label class="switch"><input type="checkbox" id="coreToggle-agentic" checked><span class="slider"></span></label>
+          </div>
+          <input type="text" class="search-box" id="searchBox-agentic" placeholder="Search topic or item...">
+          <div id="topicList-agentic"></div>
+        </div>
+
+        <div class="main-panel">
+          <div class="panel-head">
+            <div>
+              <h2 class="disp" id="panelTitle-agentic">—</h2>
+              <div class="pattern" id="panelPattern-agentic">Select a phase from the trail</div>
+            </div>
+            <div class="panel-progress" id="panelProgress-agentic"></div>
+          </div>
+          <div id="tableWrap-agentic"></div>
+        </div>
+      </div>
+
+      <div class="footnote">
+        <b>Links:</b> where the roadmap named a specific doc/reference it opens directly; otherwise it opens a scoped search so you can find current material (this space moves fast).
+        <b>Storage:</b> your checkmarks and streak are saved to your account automatically and only visible to you, kept separate from the DSA tracker.
+      </div>
+    </div>
+
+    <div class="section-panel" id="section-projects-agentic" style="display:none;">
+      <div class="projects-intro">Two full realtime, agentic projects worth putting on your resume for Meta/Google/Microsoft/Amazon at 1+ YOE. Each one is broken into: what the project needs to do (requirements), how each piece actually works (functionality), and real live datasets/APIs to build it against — explained in plain English, in detail, not one-liners.</div>
+      <div id="projectsWrap-agentic"></div>
+    </div>
+  </div>
+
+  <!-- ========================= SYSTEM DESIGN & CS FUNDAMENTALS VIEW ========================= -->
+  <div class="view sysdesign" id="view-sysdesign">
+    <div class="header">
+      <div class="eyebrow">System Design · CS Fundamentals · FAANG/MAANG Bar</div>
+      <h1 class="disp">Trail Log</h1>
+      <div class="subhead">A 4-month plan starting <b>Aug 2</b>, sized for 2–3 hrs/day. Each phase below is one calendar month; each topic inside it is one week. CS Fundamentals → LLD → HLD Fundamentals → HLD Practice.</div>
+    </div>
+
+    <div class="stats" id="stats-sysdesign"></div>
+
+    <div class="ascent-log">
+      <div class="ascent-log-head">
+        <h3>Ascent Log — last 18 weeks</h3>
+        <div class="scale">less <span class="scale-cell" style="background:rgba(30,42,34,0.06)"></span><span class="scale-cell" style="background:rgba(47,111,78,0.35)"></span><span class="scale-cell" style="background:rgba(47,111,78,0.6)"></span><span class="scale-cell" style="background:rgba(47,111,78,0.85)"></span><span class="scale-cell" style="background:#2F6F4E"></span> more</div>
+      </div>
+      <div class="heatmap-wrap"><div class="heatmap" id="heatmap-sysdesign"></div></div>
+    </div>
+
+    <div class="layout">
+      <div class="sidebar">
+        <div class="toggle-row">
+          <div class="toggle-label">Core Path only<span>The full 4-month, week-by-week plan</span></div>
+          <label class="switch"><input type="checkbox" id="coreToggle-sysdesign" checked><span class="slider"></span></label>
+        </div>
+        <input type="text" class="search-box" id="searchBox-sysdesign" placeholder="Search topic or item...">
+        <div id="topicList-sysdesign"></div>
+      </div>
+
+      <div class="main-panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="disp" id="panelTitle-sysdesign">—</h2>
+            <div class="pattern" id="panelPattern-sysdesign">Select a week from the trail</div>
+          </div>
+          <div class="panel-progress" id="panelProgress-sysdesign"></div>
+        </div>
+        <div id="tableWrap-sysdesign"></div>
+      </div>
+    </div>
+
+    <div class="footnote">
+      <b>Pace:</b> 2–3 hrs/day ≈ 15–20 hrs/week — each week's item list is sized to fit that budget.
+      <b>Storage:</b> your checkmarks and streak are saved to your account automatically and only visible to you, kept separate from the other two trackers.
+    </div>
+  </div>
+
+  <!-- ========================= RESUME & PORTFOLIO VIEW ========================= -->
+  <div class="view resume" id="view-resume">
+    <div class="header">
+      <div class="eyebrow">Resume · GitHub · Portfolio — MAANG-Ready</div>
+      <h1 class="disp">Trail Log</h1>
+      <div class="subhead">Build a resume, GitHub profile, and portfolio site that survives an ATS scan, a 6-second recruiter skim, and a hiring manager's follow-up questions. Track the checklist, then use the reference tab to study real, publicly-shared examples before you write your own.</div>
+    </div>
+
+    <div class="section-tabs" id="sectionTabs-resume">
+      <button class="section-tab active" data-section="checklist">Checklist</button>
+      <button class="section-tab" data-section="refs">★ References &amp; Portfolio Search</button>
+    </div>
+
+    <div class="section-panel" id="section-checklist-resume">
+      <div class="stats" id="stats-resume"></div>
+
+      <div class="ascent-log">
+        <div class="ascent-log-head">
+          <h3>Ascent Log — last 18 weeks</h3>
+          <div class="scale">less <span class="scale-cell" style="background:rgba(30,42,34,0.06)"></span><span class="scale-cell" style="background:rgba(47,111,78,0.35)"></span><span class="scale-cell" style="background:rgba(47,111,78,0.6)"></span><span class="scale-cell" style="background:rgba(47,111,78,0.85)"></span><span class="scale-cell" style="background:#2F6F4E"></span> more</div>
+        </div>
+        <div class="heatmap-wrap"><div class="heatmap" id="heatmap-resume"></div></div>
+      </div>
+
+      <div class="layout">
+        <div class="sidebar">
+          <div class="toggle-row">
+            <div class="toggle-label">Core Path only<span>Everything needed for a MAANG-ready resume + portfolio</span></div>
+            <label class="switch"><input type="checkbox" id="coreToggle-resume" checked><span class="slider"></span></label>
+          </div>
+          <input type="text" class="search-box" id="searchBox-resume" placeholder="Search topic or item...">
+          <div id="topicList-resume"></div>
+        </div>
+
+        <div class="main-panel">
+          <div class="panel-head">
+            <div>
+              <h2 class="disp" id="panelTitle-resume">—</h2>
+              <div class="pattern" id="panelPattern-resume">Select a topic from the trail</div>
+            </div>
+            <div class="panel-progress" id="panelProgress-resume"></div>
+          </div>
+          <div id="tableWrap-resume"></div>
+        </div>
+      </div>
+
+      <div class="footnote">
+        <b>Links:</b> where a real public guide/template/example exists it opens directly; otherwise it opens a scoped search.
+        <b>Storage:</b> your checkmarks and streak are saved to your account automatically and only visible to you, kept separate from the other trackers.
+      </div>
+    </div>
+
+    <div class="section-panel" id="section-refs-resume" style="display:none;">
+      <div class="refs-caveat"><b>How to use this:</b> these are real public guides, templates, and browsable search links — not a list of specific people's private profiles. When you look at other engineers' LinkedIn/GitHub/portfolio pages, study the <b>structure</b> (how they phrase bullets, how they organize projects, what they lead with) and write your own content in your own words. Copying content verbatim is both an easy thing for a recruiter to catch and not actually useful to you.</div>
+      <div id="refsWrap-resume"></div>
+    </div>
+  </div>
+
+</div>
+<script>
+/* =================================================================
+   SHARED HELPERS
+   ================================================================= */
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+/* =================================================================
+   STORAGE — Claude's window.storage when available, else localStorage.
+   No login: each browser/profile keeps its own progress.
+   ================================================================= */
+function makeStorage(storageKey){
+  let useClaudeStorage = false;
+  async function load(){
+    try{
+      if(window.storage && typeof window.storage.get === 'function'){
+        const res = await window.storage.get(storageKey, false);
+        useClaudeStorage = true;
+        return res && res.value ? JSON.parse(res.value) : {};
+      }
+    }catch(e){ /* fall through */ }
+    try{
+      const raw = localStorage.getItem(storageKey);
+      useClaudeStorage = false;
+      return raw ? JSON.parse(raw) : {};
+    }catch(e){ return {}; }
+  }
+  async function save(progress){
+    if(useClaudeStorage){
+      try{ await window.storage.set(storageKey, JSON.stringify(progress), false); return; }
+      catch(e){ console.error('Claude storage save failed, falling back to localStorage', e); useClaudeStorage=false; }
+    }
+    try{ localStorage.setItem(storageKey, JSON.stringify(progress)); }
+    catch(e){ console.error('localStorage save failed', e); }
+  }
+  return {load, save};
+}
+
+/* Generic app builder: wires up one topic-trail app given DOM id suffix,
+   TOPICS array, PROBLEMS array, PHASE_NAMES map, and a storageKey.
+   Optional cfg.REFERENCE: { topicKey: {faculty, playlist, youtube, notes} }
+   enables a "Class / Problems" sub-tab on the panel head. */
+function buildApp(cfg){
+  const {suffix, TOPICS, PROBLEMS, PHASE_NAMES, storageKey, makeRowLinks, REFERENCE} = cfg;
+  const store = makeStorage(storageKey);
+  let progress = {};
+  let activeTopic = TOPICS[0].key;
+  let coreOnly = true;
+  let panelMode = 'problems'; // 'problems' | 'class'
+
+  const el = id => document.getElementById(id+'-'+suffix);
+
+  function toggleSolved(id){
+    const cur = progress[id];
+    if(cur && cur.solved){ progress[id] = {solved:false}; }
+    else{ progress[id] = {solved:true, date: todayStr()}; }
+    store.save(progress);
+    renderAll();
+  }
+
+  function renderStats(){
+    const total = PROBLEMS.length;
+    const solvedIds = Object.keys(progress).filter(id=>progress[id].solved);
+    const solved = solvedIds.length;
+    const dateSet = new Set(solvedIds.map(id=>progress[id].date).filter(Boolean));
+    let streak = 0;
+    let cursor = new Date();
+    if(!dateSet.has(todayStr())){ cursor.setDate(cursor.getDate()-1); }
+    while(true){
+      const ds = cursor.toISOString().slice(0,10);
+      if(dateSet.has(ds)){ streak++; cursor.setDate(cursor.getDate()-1); } else break;
+    }
+    const todayCount = solvedIds.filter(id=>progress[id].date===todayStr()).length;
+    el('stats').innerHTML = `
+      <div class="stat solved"><div class="num mono">${solved}<span style="font-size:15px;color:var(--ink-faint)">/${total}</span></div><div class="label">Items completed</div></div>
+      <div class="stat streak"><div class="num mono">${streak}</div><div class="label">Day streak</div></div>
+      <div class="stat"><div class="num mono">${todayCount}</div><div class="label">Done today</div></div>
+      <div class="stat"><div class="num mono">${total-solved}</div><div class="label">Remaining</div></div>
+    `;
+  }
+
+  function renderHeatmap(){
+    const days = 18*7;
+    const counts = {};
+    Object.values(progress).forEach(p=>{ if(p.solved && p.date){ counts[p.date] = (counts[p.date]||0)+1; } });
+    const cells = [];
+    const start = new Date();
+    start.setDate(start.getDate() - (days-1));
+    const dow = start.getDay();
+    start.setDate(start.getDate()-dow);
+    for(let i=0;i<days+7;i++){
+      const d = new Date(start);
+      d.setDate(d.getDate()+i);
+      const ds = d.toISOString().slice(0,10);
+      const c = counts[ds]||0;
+      let lvl = 0;
+      if(c>0) lvl=1; if(c>1) lvl=2; if(c>2) lvl=3; if(c>3) lvl=4;
+      if(d > new Date()) continue;
+      cells.push(`<div class="cell" data-lvl="${lvl}" title="${ds}: ${c} done"></div>`);
+    }
+    el('heatmap').innerHTML = cells.join('');
+  }
+
+  function topicProgress(topicKey){
+    const items = PROBLEMS.filter(p=>p.topicKey===topicKey);
+    const solved = items.filter(p=>progress[p.id] && progress[p.id].solved).length;
+    return {solved, total: items.length};
+  }
+
+  let searchTerm = '';
+
+  function renderSidebar(){
+    const list = el('topicList');
+    const filtered = TOPICS.filter(t=> coreOnly ? t.tag==='core' : true);
+    const byPhase = {};
+    filtered.forEach(t=>{ (byPhase[t.phase] = byPhase[t.phase]||[]).push(t); });
+    let html = '';
+    Object.keys(byPhase).sort((a,b)=>Number(a)-Number(b)).forEach(ph=>{
+      html += `<div class="phase-group"><div class="phase-title">${PHASE_NAMES[ph]}</div>`;
+      byPhase[ph].forEach(t=>{
+        const {solved, total} = topicProgress(t.key);
+        const pct = total ? Math.round(solved/total*100) : 0;
+        html += `
+          <div class="topic-item ${t.key===activeTopic?'active':''}" data-key="${t.key}">
+            <span class="topic-dot ${t.tag}"></span>
+            <span class="topic-name">${t.name}</span>
+            <span class="bar-bg"><span class="bar-fill" style="width:${pct}%"></span></span>
+            <span class="topic-count mono">${solved}/${total}</span>
+          </div>`;
+      });
+      html += `</div>`;
+    });
+    list.innerHTML = html;
+    list.querySelectorAll('.topic-item').forEach(item=>{
+      item.addEventListener('click', ()=>{
+        activeTopic = item.dataset.key;
+        searchTerm = '';
+        panelMode = 'problems';
+        const sb = el('searchBox');
+        if(sb) sb.value = '';
+        renderAll();
+        const panel = document.getElementById('view-'+(suffix==='dsa'?'dsa':suffix)).querySelector('.main-panel');
+        if(panel && typeof panel.scrollIntoView === 'function'){
+          try{ panel.scrollIntoView({behavior:'smooth', block:'start'}); }catch(e){}
+        }
+      });
+    });
+  }
+
+  function renderModeTabs(){
+    const tabsEl = el('modeTabs');
+    if(!tabsEl) return;
+    if(!REFERENCE){ tabsEl.style.display='none'; return; }
+    tabsEl.style.display='flex';
+    tabsEl.querySelectorAll('.mode-tab').forEach(btn=>{
+      btn.classList.toggle('active', btn.dataset.mode===panelMode);
+    });
+  }
+
+  function renderClassPanel(topic){
+    const ref = REFERENCE && REFERENCE[topic.key];
+    el('panelProgress').textContent = '';
+    if(!ref){
+      el('tableWrap').innerHTML = `<div class="class-empty">No class/reference material logged for this topic yet.</div>`;
+      return;
+    }
+    const rows = [];
+    rows.push(`<div class="class-row"><div class="cl-label">Faculty</div><div class="cl-value">${ref.faculty||'—'}</div></div>`);
+    rows.push(`<div class="class-row"><div class="cl-label">Playlist</div><div class="cl-value">${ref.playlist||'—'}</div></div>`);
+    if(ref.youtube){
+      rows.push(`<div class="class-row"><div class="cl-label">YouTube</div><div class="cl-value"><a class="link-btn" href="${ref.youtube}" target="_blank" rel="noopener">Open Playlist</a></div></div>`);
+    }
+    if(ref.notes){
+      rows.push(`<div class="class-row"><div class="cl-label">Notes</div><div class="cl-value"><a class="link-btn" href="${ref.notes}" target="_blank" rel="noopener">Open Notes</a></div></div>`);
+    }
+    el('tableWrap').innerHTML = `<div class="class-card">${rows.join('')}</div>`;
+  }
+
+  function renderPanel(){
+    const term = searchTerm.trim().toLowerCase();
+    let items, title, patternText, topic;
+    if(term){
+      panelMode = 'problems';
+      items = PROBLEMS.filter(p=> p.name.toLowerCase().includes(term) || String(p.lc||'').includes(term));
+      title = 'Search results';
+      patternText = `"${searchTerm}" — ${items.length} match${items.length===1?'':'es'}`;
+    }else{
+      topic = TOPICS.find(t=>t.key===activeTopic) || TOPICS[0];
+      items = PROBLEMS.filter(p=>p.topicKey===topic.key);
+      title = topic.name;
+      patternText = topic.pattern;
+    }
+    el('panelTitle').textContent = title;
+    el('panelPattern').textContent = patternText;
+    renderModeTabs();
+
+    if(REFERENCE && !term && panelMode==='class'){
+      renderClassPanel(topic);
+      return;
+    }
+
+    const solved = items.filter(p=>progress[p.id] && progress[p.id].solved).length;
+    el('panelProgress').textContent = items.length ? `${solved} / ${items.length} done` : '';
+
+    if(items.length===0){
+      el('tableWrap').innerHTML = `<div class="empty-state">No items match.</div>`;
+      return;
+    }
+    let rows = items.map(p=>{
+      const isSolved = progress[p.id] && progress[p.id].solved;
+      const nameTag = p.lc ? `<span class="lc-tag">#${p.lc}</span>` : (p.source ? `<span class="src-tag">${p.source}</span>` : '');
+      return `
+        <tr class="prob-row ${isSolved?'solved':''}">
+          <td class="td-check"><input type="checkbox" class="chk" ${isSolved?'checked':''} data-id="${p.id}"></td>
+          <td class="td-no mono">${p.no}</td>
+          <td class="td-name ${isSolved?'solved-text':''}">${p.name}${nameTag}</td>
+          <td><span class="diff-badge diff-${p.diff}">${p.diff}</span></td>
+          <td>${makeRowLinks(p)}</td>
+        </tr>`;
+    }).join('');
+    el('tableWrap').innerHTML = `
+      <table class="prob-table">
+        <thead><tr><th></th><th>No</th><th>Item</th><th>Type</th><th>Links</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    el('tableWrap').querySelectorAll('.chk').forEach(cb=>{
+      cb.addEventListener('change', ()=> toggleSolved(cb.dataset.id));
+    });
+  }
+
+  function renderAll(){
+    renderStats();
+    renderHeatmap();
+    renderSidebar();
+    renderPanel();
+  }
+
+  el('coreToggle').addEventListener('change', (e)=>{
+    coreOnly = e.target.checked;
+    if(coreOnly){
+      const t = TOPICS.find(t=>t.key===activeTopic);
+      if(t && t.tag!=='core'){ const first = TOPICS.find(t=>t.tag==='core'); if(first) activeTopic = first.key; }
+    }
+    renderAll();
+  });
+  el('searchBox').addEventListener('input', (e)=>{ searchTerm = e.target.value; renderPanel(); });
+
+  const tabsEl = el('modeTabs');
+  if(tabsEl){
+    tabsEl.querySelectorAll('.mode-tab').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        panelMode = btn.dataset.mode;
+        renderPanel();
+      });
+    });
+  }
+
+  renderAll();
+  (async function init(){
+    try{
+      progress = await Promise.race([
+        store.load(),
+        new Promise((_, reject)=> setTimeout(()=>reject(new Error('storage timeout')), 4000))
+      ]);
+    }catch(e){
+      console.warn('Progress did not load (continuing with a fresh tracker):', e);
+    }
+    renderAll();
+  })();
+
+  return {renderAll};
+}
+
+/* =================================================================
+   DSA APP DATA (unchanged from original tracker)
+   ================================================================= */
+const DSA_TOPICS = [
+  {key:'arrays-basics', phase:1, name:'Arrays – Basics', tag:'core', pattern:'Prefix sums · in-place ops · index tricks'},
+  {key:'hashing', phase:1, name:'Hashing – HashMap & HashSet', tag:'core', pattern:'Frequency map · complement lookup · grouping'},
+  {key:'strings-basics', phase:1, name:'Strings – Basics', tag:'core', pattern:'Reversal · building · char-frequency · parsing fundamentals'},
+  {key:'two-pointers', phase:1, name:'Two Pointers', tag:'core', pattern:'Left/right · fast/slow · shrink window'},
+  {key:'sliding-window', phase:1, name:'Sliding Window', tag:'core', pattern:'Fixed window · variable window · frequency map'},
+  {key:'binary-search', phase:1, name:'Binary Search', tag:'core', pattern:'Classic · rotated array · answer-space BS'},
+  {key:'sorting', phase:1, name:'Sorting & Searching', tag:'core', pattern:'Merge sort · quick select · custom comparator'},
+  {key:'prefix-sum', phase:1, name:'Prefix Sum & Difference Array', tag:'core', pattern:'Range sum · range update · 2D prefix'},
+  {key:'simulation', phase:1, name:'Simulation & Implementation', tag:'core', pattern:'Follow instructions · state machine · careful indexing'},
+  {key:'linked-lists', phase:2, name:'Linked Lists', tag:'core', pattern:'Dummy node · two pointers · reversal · merge'},
+  {key:'stack-queue', phase:2, name:'Stack & Queue', tag:'core', pattern:'Monotonic stack · next greater · bracket matching'},
+  {key:'trees-dfs', phase:2, name:'Binary Trees – DFS', tag:'core', pattern:'Pre/in/post order · path sum · LCA'},
+  {key:'trees-bfs', phase:2, name:'Binary Trees – BFS', tag:'core', pattern:'Level order · zigzag · right view'},
+  {key:'bst', phase:2, name:'BST', tag:'core', pattern:'Inorder = sorted · validate · kth smallest'},
+  {key:'backtracking', phase:2, name:'Recursion & Backtracking', tag:'core', pattern:'Choose · explore · unchoose (state tree)'},
+  {key:'heaps', phase:2, name:'Heaps / Priority Queue', tag:'core', pattern:'K-th element · merge streams · scheduling'},
+  {key:'greedy', phase:2, name:'Greedy', tag:'core', pattern:'Local optimum = global · interval · kadane'},
+  {key:'mono-stack', phase:2, name:'Monotonic Stack & Queue', tag:'core', pattern:'Next greater/smaller · stock span · sliding window max'},
+  {key:'design-oop', phase:2, name:'Design & OOP', tag:'core', pattern:'Data structure design · iterator · cache'},
+  {key:'concurrency', phase:2, name:'Concurrency & Multithreading', tag:'core', pattern:'Locks · semaphores · producer-consumer · thread-safe design — asked at 2+ YOE bar'},
+  {key:'classics-1', phase:2, name:'Classic Interview Extras I — Arrays, LinkedList & Bit Manip', tag:'core', pattern:"Striver & Love Babbar sheet gaps — Majority Element, Find Duplicate, LL classics"},
+  {key:'classics-2', phase:2, name:'Classic Interview Extras II — Strings, Trees & Backtracking', tag:'core', pattern:'Striver & Love Babbar sheet gaps — Roman numerals, tree traversals, palindrome partitioning'},
+  {key:'dp-1d', phase:3, name:'Dynamic Programming – 1D', tag:'core', pattern:'Fibonacci-style · decision at each step'},
+  {key:'dp-2d', phase:3, name:'Dynamic Programming – 2D / Grid', tag:'core', pattern:'Grid paths · substring matching · knapsack'},
+  {key:'dp-stocks', phase:3, name:'DP – Stocks & State Machine', tag:'core', pattern:'Hold/sell states · transaction limits'},
+  {key:'graphs-bfs-dfs', phase:3, name:'Graphs – BFS & DFS', tag:'core', pattern:'Connected components · flood fill · multi-source BFS'},
+  {key:'graphs-topo', phase:3, name:'Graphs – Topological Sort & Cycle', tag:'core', pattern:"Kahn's algo · DFS coloring · course schedule"},
+  {key:'intervals', phase:3, name:'Intervals & Sweep Line', tag:'core', pattern:'Sort by start · event timeline · overlap check'},
+  {key:'graphs-shortest', phase:3, name:'Graphs – Shortest Path & Union Find', tag:'optional', pattern:'Dijkstra · Bellman-Ford · DSU · MST'},
+  {key:'trie', phase:3, name:'Trie', tag:'optional', pattern:'Prefix tree · autocomplete · word dictionary'},
+  {key:'bit-manip', phase:3, name:'Bit Manipulation', tag:'optional', pattern:'XOR tricks · mask · count bits'},
+  {key:'math', phase:3, name:'Math & Number Theory', tag:'optional', pattern:'GCD · primes · mod arithmetic'},
+  {key:'strings-adv', phase:3, name:'Strings – Advanced', tag:'optional', pattern:'KMP · Rabin-Karp · palindrome tricks'},
+  {key:'dp-trees', phase:3, name:'DP on Trees', tag:'optional', pattern:'Rerooting · diameter · subtree DP'},
+  {key:'segment-tree', phase:3, name:'Segment Tree & BIT (Fenwick)', tag:'optional', pattern:'Range query · point update · order statistics'},
+  {key:'adv-graph', phase:3, name:'Advanced Graph – Euler & SCC', tag:'optional', pattern:"Hierholzer · Tarjan SCC · bridges & articulation"},
+  {key:'google', phase:4, name:'Google – Top Tagged', tag:'grind', pattern:'Graphs · segment trees · hard DP · string matching'},
+  {key:'amazon', phase:4, name:'Amazon – Top Tagged', tag:'grind', pattern:'Arrays · trees · BFS · OOP design'},
+  {key:'meta', phase:4, name:'Meta – Top Tagged', tag:'grind', pattern:'Arrays · strings · trees · sliding window'},
+  {key:'microsoft', phase:4, name:'Microsoft – Top Tagged', tag:'grind', pattern:'Design · trees · BFS · moderate DP'},
+  {key:'mixed-hard', phase:4, name:'Mixed Hard Problems – Final Boss', tag:'grind', pattern:'Contest-style · multi-concept · optimised'},
+  {key:'apple-netflix', phase:4, name:'Apple & Netflix – Top Tagged', tag:'grind', pattern:'Arrays · design · trees · strings'},
+  {key:'contest-patterns', phase:4, name:'Must-Know Contest Patterns', tag:'grind', pattern:'Meet in middle · bitmask DP · binary search on answer'},
+  {key:'quant', phase:4, name:'Goldman Sachs & Quant Firms', tag:'grind', pattern:'Math · probability · combinatorics · DP'},
+  {key:'walmart', phase:4, name:'Walmart — Top Tagged', tag:'grind', pattern:'OOD/LLD-flavored · arrays/strings/trees · pragmatic system-y coding'},
+
+  {key:'proj-url-shortener', phase:5, name:'Project 1 — Scalable URL Shortener & Analytics Platform', tag:'grind', pattern:'What a 2+ YOE SDE-2 is expected to own: capacity planning, sharded storage, caching, rate limiting, analytics pipeline, observability'},
+  {key:'proj-job-scheduler', phase:5, name:'Project 2 — Distributed Job Scheduler (Cron-as-a-Service)', tag:'grind', pattern:'Distributed locking, leader election, retries/DLQ, worker pool, exactly-once-ish delivery, observability'},
+];
+const DSA_PHASE_NAMES = {1:'Phase 1 — Foundation · Aug 2026', 2:'Phase 2 — Core Structures · Sep 2026', 3:'Phase 3 — Advanced · Oct–Nov 2026', 4:'Phase 4 — Mock & Company Grind · Dec 2026', 5:'Phase 5 — MAANG-Level Projects (2+ YOE Bar) · Jan 2027'};
+
+const DSA_RAW = {
+'arrays-basics':[[1,1480,'Running Sum of 1d Array','Easy'],[2,1929,'Concatenation of Array','Easy'],[3,485,'Max Consecutive Ones','Easy'],[4,283,'Move Zeroes','Easy'],[5,448,'Find All Numbers Disappeared in an Array','Easy'],[6,442,'Find All Duplicates in an Array','Medium'],[7,54,'Spiral Matrix','Medium'],[8,48,'Rotate Image','Medium'],[9,238,'Product of Array Except Self','Medium'],[10,560,'Subarray Sum Equals K','Medium']],
+'hashing':[[1,217,'Contains Duplicate','Easy'],[2,1,'Two Sum','Easy'],[3,242,'Valid Anagram','Easy'],[4,49,'Group Anagrams','Medium'],[5,347,'Top K Frequent Elements','Medium'],[6,128,'Longest Consecutive Sequence','Medium'],[7,299,'Bulls and Cows','Medium'],[8,380,'Insert Delete GetRandom O(1)','Medium'],[9,454,'4Sum II','Medium'],[10,146,'LRU Cache','Medium']],
+'strings-basics':[[1,344,'Reverse String','Easy'],[2,14,'Longest Common Prefix','Easy'],[3,8,'String to Integer (atoi)','Medium'],[4,58,'Length of Last Word','Easy'],[5,6,'Zigzag Conversion','Medium'],[6,67,'Add Binary','Easy'],[7,383,'Ransom Note','Easy'],[8,387,'First Unique Character in a String','Easy'],[9,443,'String Compression','Medium'],[10,227,'Basic Calculator II','Medium']],
+'two-pointers':[[1,125,'Valid Palindrome','Easy'],[2,167,'Two Sum II – Sorted','Medium'],[3,15,'3Sum','Medium'],[4,16,'3Sum Closest','Medium'],[5,11,'Container With Most Water','Medium'],[6,42,'Trapping Rain Water','Hard'],[7,75,'Sort Colors','Medium'],[8,977,'Squares of a Sorted Array','Easy'],[9,26,'Remove Duplicates from Sorted Array','Easy'],[10,27,'Remove Element','Easy']],
+'sliding-window':[[1,643,'Maximum Average Subarray I','Easy'],[2,3,'Longest Substring Without Repeating Characters','Medium'],[3,209,'Minimum Size Subarray Sum','Medium'],[4,424,'Longest Repeating Character Replacement','Medium'],[5,567,'Permutation in String','Medium'],[6,438,'Find All Anagrams in a String','Medium'],[7,76,'Minimum Window Substring','Hard'],[8,239,'Sliding Window Maximum','Hard'],[9,1004,'Max Consecutive Ones III','Medium'],[10,1052,'Grumpy Bookstore Owner','Medium']],
+'binary-search':[[1,704,'Binary Search','Easy'],[2,35,'Search Insert Position','Easy'],[3,74,'Search a 2D Matrix','Medium'],[4,153,'Find Minimum in Rotated Sorted Array','Medium'],[5,33,'Search in Rotated Sorted Array','Medium'],[6,34,'Find First and Last Position of Element in Sorted Array','Medium'],[7,162,'Find Peak Element','Medium'],[8,875,'Koko Eating Bananas','Medium'],[9,1011,'Capacity To Ship Packages Within D Days','Medium'],[10,410,'Split Array Largest Sum','Hard']],
+'sorting':[[1,88,'Merge Sorted Array','Easy'],[2,21,'Merge Two Sorted Lists','Easy'],[3,912,'Sort an Array','Medium'],[4,148,'Sort List','Medium'],[5,215,'Kth Largest Element in an Array','Medium'],[6,31,'Next Permutation','Medium'],[7,179,'Largest Number','Medium'],[8,56,'Merge Intervals','Medium'],[9,57,'Insert Interval','Medium'],[10,252,'Meeting Rooms','Easy']],
+'prefix-sum':[[1,303,'Range Sum Query – Immutable','Easy'],[2,304,'Range Sum Query 2D – Immutable','Medium'],[3,307,'Range Sum Query – Mutable','Medium'],[4,523,'Continuous Subarray Sum','Medium'],[5,525,'Contiguous Array','Medium'],[6,974,'Subarray Sums Divisible by K','Medium'],[7,1310,'XOR Queries of a Subarray','Medium'],[8,1109,'Corporate Flight Bookings','Medium'],[9,2055,'Plates Between Candles','Medium'],[10,1893,'Check if All the Integers in a Range Are Covered','Easy']],
+'simulation':[[1,412,'Fizz Buzz','Easy'],[2,289,'Game of Life','Medium'],[3,73,'Set Matrix Zeroes','Medium'],[4,59,'Spiral Matrix II','Medium'],[5,498,'Diagonal Traverse','Medium'],[6,885,'Spiral Matrix III','Medium'],[7,1275,'Find Winner on a Tic Tac Toe Game','Easy'],[8,1041,'Robot Bounded In Circle','Medium'],[9,874,'Walking Robot Simulation','Medium'],[10,2326,'Spiral Matrix IV','Medium']],
+'linked-lists':[[1,206,'Reverse Linked List','Easy'],[2,21,'Merge Two Sorted Lists','Easy'],[3,141,'Linked List Cycle','Easy'],[4,142,'Linked List Cycle II','Medium'],[5,19,'Remove Nth Node From End of List','Medium'],[6,143,'Reorder List','Medium'],[7,2,'Add Two Numbers','Medium'],[8,24,'Swap Nodes in Pairs','Medium'],[9,25,'Reverse Nodes in k-Group','Hard'],[10,23,'Merge k Sorted Lists','Hard']],
+'stack-queue':[[1,20,'Valid Parentheses','Easy'],[2,155,'Min Stack','Medium'],[3,232,'Implement Queue using Stacks','Easy'],[4,739,'Daily Temperatures','Medium'],[5,496,'Next Greater Element I','Easy'],[6,503,'Next Greater Element II','Medium'],[7,84,'Largest Rectangle in Histogram','Hard'],[8,85,'Maximal Rectangle','Hard'],[9,394,'Decode String','Medium'],[10,856,'Score of Parentheses','Medium']],
+'trees-dfs':[[1,104,'Maximum Depth of Binary Tree','Easy'],[2,226,'Invert Binary Tree','Easy'],[3,543,'Diameter of Binary Tree','Easy'],[4,110,'Balanced Binary Tree','Easy'],[5,112,'Path Sum','Easy'],[6,236,'Lowest Common Ancestor of a Binary Tree','Medium'],[7,124,'Binary Tree Maximum Path Sum','Hard'],[8,437,'Path Sum III','Medium'],[9,129,'Sum Root to Leaf Numbers','Medium'],[10,572,'Subtree of Another Tree','Easy']],
+'trees-bfs':[[1,102,'Binary Tree Level Order Traversal','Medium'],[2,103,'Binary Tree Zigzag Level Order Traversal','Medium'],[3,199,'Binary Tree Right Side View','Medium'],[4,513,'Find Bottom Left Tree Value','Medium'],[5,116,'Populating Next Right Pointers in Each Node','Medium'],[6,637,'Average of Levels in Binary Tree','Easy'],[7,111,'Minimum Depth of Binary Tree','Easy'],[8,662,'Maximum Width of Binary Tree','Medium'],[9,623,'Add One Row to Tree','Medium'],[10,958,'Check Completeness of a Binary Tree','Medium']],
+'bst':[[1,700,'Search in a Binary Search Tree','Easy'],[2,701,'Insert into a Binary Search Tree','Medium'],[3,450,'Delete Node in a BST','Medium'],[4,98,'Validate Binary Search Tree','Medium'],[5,230,'Kth Smallest Element in a BST','Medium'],[6,235,'Lowest Common Ancestor of a BST','Medium'],[7,108,'Convert Sorted Array to Binary Search Tree','Easy'],[8,173,'Binary Search Tree Iterator','Medium'],[9,285,'Inorder Successor in BST','Medium'],[10,538,'Convert BST to Greater Tree','Medium']],
+'backtracking':[[1,78,'Subsets','Medium'],[2,90,'Subsets II','Medium'],[3,46,'Permutations','Medium'],[4,47,'Permutations II','Medium'],[5,39,'Combination Sum','Medium'],[6,40,'Combination Sum II','Medium'],[7,22,'Generate Parentheses','Medium'],[8,79,'Word Search','Medium'],[9,212,'Word Search II','Hard'],[10,51,'N-Queens','Hard']],
+'heaps':[[1,215,'Kth Largest Element in an Array','Medium'],[2,347,'Top K Frequent Elements','Medium'],[3,373,'Find K Pairs with Smallest Sums','Medium'],[4,378,'Kth Smallest Element in a Sorted Matrix','Medium'],[5,295,'Find Median from Data Stream','Hard'],[6,23,'Merge k Sorted Lists','Hard'],[7,767,'Reorganize String','Medium'],[8,1642,'Furthest Building You Can Reach','Medium'],[9,1046,'Last Stone Weight','Easy'],[10,703,'Kth Largest Element in a Stream','Easy']],
+'greedy':[[1,121,'Best Time to Buy and Sell Stock','Easy'],[2,122,'Best Time to Buy and Sell Stock II','Medium'],[3,55,'Jump Game','Medium'],[4,45,'Jump Game II','Medium'],[5,134,'Gas Station','Medium'],[6,435,'Non-overlapping Intervals','Medium'],[7,452,'Minimum Number of Arrows to Burst Balloons','Medium'],[8,53,'Maximum Subarray','Medium'],[9,135,'Candy','Hard'],[10,1029,'Two City Scheduling','Medium']],
+'mono-stack':[[1,901,'Online Stock Span','Medium'],[2,907,'Sum of Subarray Minimums','Medium'],[3,1019,'Next Greater Node In Linked List','Medium'],[4,1130,'Minimum Cost Tree From Leaf Values','Medium'],[5,402,'Remove K Digits','Medium'],[6,316,'Remove Duplicate Letters','Medium'],[7,321,'Create Maximum Number','Hard'],[8,456,'132 Pattern','Medium'],[9,1776,'Car Fleet II','Hard'],[10,2104,'Sum of Subarray Ranges','Medium']],
+'design-oop':[[1,706,'Design HashMap','Easy'],[2,705,'Design HashSet','Easy'],[3,341,'Flatten Nested List Iterator','Medium'],[4,284,'Peeking Iterator','Medium'],[5,535,'Encode and Decode TinyURL','Medium'],[6,348,'Design Tic-Tac-Toe','Medium'],[7,622,'Design Circular Queue','Medium'],[8,641,'Design Circular Deque','Medium'],[9,1603,'Design Parking System','Easy'],[10,729,'My Calendar I','Medium']],
+'concurrency':[[1,1114,'Print in Order','Easy'],[2,1115,'Print FooBar Alternately','Medium'],[3,1116,'Print Zero Even Odd','Medium'],[4,1117,'Building H2O','Medium'],[5,1195,'Fizz Buzz Multithreaded','Medium'],[6,1226,'The Dining Philosophers','Medium'],[7,1188,'Design Bounded Blocking Queue','Medium'],[8,1242,'Web Crawler Multithreaded','Hard'],[9,1279,'Traffic Light Controlled Intersection','Medium']],
+'classics-1':[[1,169,'Majority Element','Easy'],[2,229,'Majority Element II','Medium'],[3,287,'Find the Duplicate Number','Medium'],[4,118,"Pascal's Triangle",'Easy'],[5,152,'Maximum Product Subarray','Medium'],[6,2149,'Rearrange Array Elements by Sign','Medium'],[7,231,'Power of Two','Easy'],[8,876,'Middle of the Linked List','Easy'],[9,160,'Intersection of Two Linked Lists','Easy'],[10,234,'Palindrome Linked List','Easy'],[11,61,'Rotate List','Medium'],[12,237,'Delete Node in a Linked List','Easy'],[13,138,'Copy List with Random Pointer','Medium'],[14,430,'Flatten a Multilevel Doubly Linked List','Medium'],[15,328,'Odd Even Linked List','Medium']],
+'classics-2':[[1,131,'Palindrome Partitioning','Medium'],[2,151,'Reverse Words in a String','Medium'],[3,13,'Roman to Integer','Easy'],[4,12,'Integer to Roman','Medium'],[5,165,'Compare Version Numbers','Medium'],[6,38,'Count and Say','Medium'],[7,94,'Binary Tree Inorder Traversal','Easy'],[8,144,'Binary Tree Preorder Traversal','Easy'],[9,145,'Binary Tree Postorder Traversal','Easy'],[10,240,'Search a 2D Matrix II','Medium'],[11,301,'Remove Invalid Parentheses','Hard'],[12,205,'Isomorphic Strings','Easy']],
+'dp-1d':[[1,70,'Climbing Stairs','Easy'],[2,746,'Min Cost Climbing Stairs','Easy'],[3,198,'House Robber','Medium'],[4,213,'House Robber II','Medium'],[5,5,'Longest Palindromic Substring','Medium'],[6,647,'Palindromic Substrings','Medium'],[7,91,'Decode Ways','Medium'],[8,322,'Coin Change','Medium'],[9,300,'Longest Increasing Subsequence','Medium'],[10,416,'Partition Equal Subset Sum','Medium']],
+'dp-2d':[[1,62,'Unique Paths','Medium'],[2,63,'Unique Paths II','Medium'],[3,64,'Minimum Path Sum','Medium'],[4,1143,'Longest Common Subsequence','Medium'],[5,1092,'Shortest Common Supersequence','Hard'],[6,72,'Edit Distance','Medium'],[7,97,'Interleaving String','Medium'],[8,115,'Distinct Subsequences','Hard'],[9,312,'Burst Balloons','Hard'],[10,10,'Regular Expression Matching','Hard']],
+'dp-stocks':[[1,121,'Best Time to Buy and Sell Stock','Easy'],[2,122,'Best Time to Buy and Sell Stock II','Medium'],[3,123,'Best Time to Buy and Sell Stock III','Hard'],[4,188,'Best Time to Buy and Sell Stock IV','Hard'],[5,309,'Best Time to Buy and Sell Stock with Cooldown','Medium'],[6,714,'Best Time to Buy and Sell Stock with Transaction Fee','Medium'],[7,256,'Paint House','Medium'],[8,265,'Paint House II','Hard'],[9,337,'House Robber III','Medium'],[10,740,'Delete and Earn','Medium']],
+'graphs-bfs-dfs':[[1,200,'Number of Islands','Medium'],[2,695,'Max Area of Island','Medium'],[3,130,'Surrounded Regions','Medium'],[4,994,'Rotting Oranges','Medium'],[5,417,'Pacific Atlantic Water Flow','Medium'],[6,1020,'Number of Enclaves','Medium'],[7,133,'Clone Graph','Medium'],[8,827,'Making A Large Island','Hard'],[9,1091,'Shortest Path in Binary Matrix','Medium'],[10,542,'01 Matrix','Medium']],
+'graphs-topo':[[1,207,'Course Schedule','Medium'],[2,210,'Course Schedule II','Medium'],[3,802,'Find Eventual Safe States','Medium'],[4,269,'Alien Dictionary','Hard'],[5,310,'Minimum Height Trees','Medium'],[6,444,'Sequence Reconstruction','Medium'],[7,1203,'Sort Items by Groups Respecting Dependencies','Hard'],[8,329,'Longest Increasing Path in a Matrix','Hard'],[9,851,'Loud and Rich','Medium'],[10,2115,'Find All Possible Recipes from Given Supplies','Medium']],
+'intervals':[[1,56,'Merge Intervals','Medium'],[2,57,'Insert Interval','Medium'],[3,252,'Meeting Rooms','Easy'],[4,253,'Meeting Rooms II','Medium'],[5,435,'Non-overlapping Intervals','Medium'],[6,452,'Minimum Number of Arrows to Burst Balloons','Medium'],[7,986,'Interval List Intersections','Medium'],[8,759,'Employee Free Time','Hard'],[9,1851,'Minimum Interval to Include Each Query','Hard'],[10,732,'My Calendar III','Hard']],
+'graphs-shortest':[[1,743,'Network Delay Time','Medium'],[2,787,'Cheapest Flights Within K Stops','Medium'],[3,1631,'Path With Minimum Effort','Medium'],[4,778,'Swim in Rising Water','Hard'],[5,684,'Redundant Connection','Medium'],[6,685,'Redundant Connection II','Hard'],[7,1584,'Min Cost to Connect All Points','Medium'],[8,547,'Number of Provinces','Medium'],[9,990,'Satisfiability of Equality Equations','Medium'],[10,1319,'Number of Operations to Make Network Connected','Medium']],
+'trie':[[1,208,'Implement Trie (Prefix Tree)','Medium'],[2,211,'Design Add and Search Words Data Structure','Medium'],[3,212,'Word Search II','Hard'],[4,720,'Longest Word in Dictionary','Medium'],[5,1268,'Search Suggestions System','Medium'],[6,677,'Map Sum Pairs','Medium'],[7,336,'Palindrome Pairs','Hard'],[8,421,'Maximum XOR of Two Numbers in an Array','Medium'],[9,820,'Short Encoding of Words','Medium'],[10,1032,'Stream of Characters','Hard']],
+'bit-manip':[[1,136,'Single Number','Easy'],[2,137,'Single Number II','Medium'],[3,260,'Single Number III','Medium'],[4,191,'Number of 1 Bits','Easy'],[5,338,'Counting Bits','Easy'],[6,190,'Reverse Bits','Easy'],[7,268,'Missing Number','Easy'],[8,371,'Sum of Two Integers','Medium'],[9,201,'Bitwise AND of Numbers Range','Medium'],[10,461,'Hamming Distance','Easy']],
+'math':[[1,7,'Reverse Integer','Medium'],[2,9,'Palindrome Number','Easy'],[3,412,'Fizz Buzz','Easy'],[4,204,'Count Primes','Medium'],[5,50,'Pow(x, n)','Medium'],[6,69,'Sqrt(x)','Easy'],[7,279,'Perfect Squares','Medium'],[8,365,'Water and Jug Problem','Medium'],[9,149,'Max Points on a Line','Hard'],[10,166,'Fraction to Recurring Decimal','Medium']],
+'strings-adv':[[1,28,'Find the Index of the First Occurrence in a String','Easy'],[2,459,'Repeated Substring Pattern','Easy'],[3,686,'Repeated String Match','Medium'],[4,1392,'Longest Happy Prefix','Hard'],[5,647,'Palindromic Substrings','Medium'],[6,5,'Longest Palindromic Substring','Medium'],[7,214,'Shortest Palindrome','Hard'],[8,43,'Multiply Strings','Medium'],[9,468,'Validate IP Address','Medium'],[10,65,'Valid Number','Hard']],
+'dp-trees':[[1,337,'House Robber III','Medium'],[2,1245,'Tree Diameter','Medium'],[3,2246,'Longest Path With Different Adjacent Characters','Hard'],[4,310,'Minimum Height Trees','Medium'],[5,979,'Distribute Coins in Binary Tree','Medium'],[6,968,'Binary Tree Cameras','Hard'],[7,1522,'Diameter of N-Ary Tree','Medium'],[8,2538,'Difference Between Maximum and Minimum Price Sum','Hard'],[9,834,'Sum of Distances in Tree','Hard'],[10,1373,'Maximum Sum BST in Binary Tree','Hard']],
+'segment-tree':[[1,307,'Range Sum Query – Mutable','Medium'],[2,315,'Count of Smaller Numbers After Self','Hard'],[3,493,'Reverse Pairs','Hard'],[4,327,'Count of Range Sum','Hard'],[5,1649,'Create Sorted Array through Instructions','Hard'],[6,699,'Falling Squares','Hard'],[7,715,'Range Module','Hard'],[8,2179,'Count Good Triplets in an Array','Hard'],[9,1157,'Online Majority Element In Subarray','Hard'],[10,2407,'Longest Increasing Subsequence II','Hard']],
+'adv-graph':[[1,332,'Reconstruct Itinerary','Hard'],[2,753,'Cracking the Safe','Hard'],[3,1192,'Critical Connections in a Network','Hard'],[4,1489,'Find Critical and Pseudo-Critical Edges in MST','Hard'],[5,928,'Minimize Malware Spread II','Hard'],[6,924,'Minimize Malware Spread','Hard'],[7,2092,'Find All People With Secret','Hard'],[8,1627,'Graph Connectivity With Threshold','Hard'],[9,1579,'Remove Max Number of Edges to Keep Graph Fully Traversable','Hard'],[10,765,'Couples Holding Hands','Hard']],
+'google':[[1,843,'Guess the Word','Hard'],[2,850,'Rectangle Area II','Hard'],[3,854,'K-Similar Strings','Hard'],[4,1345,'Jump Game IV','Hard'],[5,1406,'Stone Game III','Hard'],[6,1444,'Number of Ways of Cutting a Pizza','Hard'],[7,1510,'Stone Game IV','Hard'],[8,913,'Cat and Mouse','Hard'],[9,1531,'String Compression II','Hard'],[10,1140,'Stone Game II','Medium']],
+'amazon':[[1,1,'Two Sum','Easy'],[2,200,'Number of Islands','Medium'],[3,973,'K Closest Points to Origin','Medium'],[4,253,'Meeting Rooms II','Medium'],[5,42,'Trapping Rain Water','Hard'],[6,146,'LRU Cache','Medium'],[7,23,'Merge k Sorted Lists','Hard'],[8,297,'Serialize and Deserialize Binary Tree','Hard'],[9,127,'Word Ladder','Hard'],[10,815,'Bus Routes','Hard']],
+'meta':[[1,1249,'Minimum Remove to Make Valid Parentheses','Medium'],[2,314,'Binary Tree Vertical Order Traversal','Medium'],[3,721,'Accounts Merge','Medium'],[4,415,'Add Strings','Easy'],[5,238,'Product of Array Except Self','Medium'],[6,158,'Read N Characters Given Read4 II','Hard'],[7,986,'Interval List Intersections','Medium'],[8,1539,'Kth Missing Positive Number','Easy'],[9,680,'Valid Palindrome II','Easy'],[10,408,'Valid Word Abbreviation','Easy']],
+'microsoft':[[1,146,'LRU Cache','Medium'],[2,341,'Flatten Nested List Iterator','Medium'],[3,348,'Design Tic-Tac-Toe','Medium'],[4,535,'Encode and Decode TinyURL','Medium'],[5,295,'Find Median from Data Stream','Hard'],[6,297,'Serialize and Deserialize Binary Tree','Hard'],[7,380,'Insert Delete GetRandom O(1)','Medium'],[8,460,'LFU Cache','Hard'],[9,716,'Max Stack','Hard']],
+'mixed-hard':[[1,4,'Median of Two Sorted Arrays','Hard'],[2,32,'Longest Valid Parentheses','Hard'],[3,37,'Sudoku Solver','Hard'],[4,41,'First Missing Positive','Hard'],[5,44,'Wildcard Matching','Hard'],[6,52,'N-Queens II','Hard'],[7,60,'Permutation Sequence','Hard'],[8,68,'Text Justification','Hard'],[9,87,'Scramble String','Hard'],[10,99,'Recover Binary Search Tree','Medium']],
+'apple-netflix':[[1,1,'Two Sum','Easy'],[2,20,'Valid Parentheses','Easy'],[3,121,'Best Time to Buy and Sell Stock','Easy'],[4,200,'Number of Islands','Medium'],[5,139,'Word Break','Medium'],[6,140,'Word Break II','Hard'],[7,236,'Lowest Common Ancestor of a Binary Tree','Medium'],[8,297,'Serialize and Deserialize Binary Tree','Hard'],[9,460,'LFU Cache','Hard'],[10,716,'Max Stack','Hard']],
+'contest-patterns':[[1,805,'Split Array With Same Average','Hard'],[2,1755,'Closest Subsequence Sum','Hard'],[3,1986,'Minimum Number of Work Sessions to Finish the Tasks','Medium'],[4,1434,'Number of Ways to Wear Different Hats to Each Other','Hard'],[5,1723,'Find Minimum Time to Finish All Jobs','Hard'],[6,1947,'Maximum Compatibility Score Sum','Medium'],[7,2305,'Fair Distribution of Cookies','Medium'],[8,1066,'Campus Bikes II','Medium'],[9,943,'Find the Shortest Superstring','Hard'],[10,1349,'Maximum Students Taking Exam','Hard']],
+'quant':[[1,50,'Pow(x, n)','Medium'],[2,204,'Count Primes','Medium'],[3,400,'Nth Digit','Medium'],[4,470,'Implement Rand10() Using Rand7()','Medium'],[5,528,'Random Pick with Weight','Medium'],[6,382,'Linked List Random Node','Medium'],[7,398,'Random Pick Index','Medium'],[8,710,'Random Pick with Blacklist','Hard'],[9,688,'Knight Probability in Chessboard','Medium'],[10,837,'New 21 Game','Medium']],
+'walmart':[[1,1,'Two Sum','Easy'],[2,56,'Merge Intervals','Medium'],[3,146,'LRU Cache','Medium'],[4,1396,'Design Underground System','Medium'],[5,200,'Number of Islands','Medium'],[6,207,'Course Schedule','Medium'],[7,139,'Word Break','Medium'],[8,1603,'Design Parking System','Easy'],[9,692,'Top K Frequent Words','Medium'],[10,253,'Meeting Rooms II','Medium']],
+};
+
+const DSA_EXTRA = {
+  'arrays-basics':[['Rotate Array by D Places','GFG','Easy'],['Equilibrium Point','GFG','Easy'],['Leaders in an Array','GFG','Easy'],['Rearrange Array Alternately (+ve / -ve)','GFG','Medium']],
+  'hashing':[['Union of Two Arrays','GFG','Easy'],['Intersection of Two Arrays','GFG','Easy'],['Sorting Elements by Frequency','GFG','Medium'],['Relative Sort Array','GFG','Easy']],
+  'two-pointers':[['Pair with Given Sum in a Sorted Array','GFG','Easy'],['Merge Two Sorted Arrays Without Extra Space','GFG','Hard'],['Three-way Partitioning','GFG','Medium']],
+  'sliding-window':[['First Negative Integer in Every Window of Size K','GFG','Medium'],['Count Distinct Elements in Every Window','GFG','Medium'],['Longest Substring with At Most K Distinct Characters','GFG','Medium']],
+  'binary-search':[["Allocate Minimum Number of Pages",'GFG','Hard'],['Aggressive Cows','Coding Ninjas','Hard'],["Painter's Partition Problem",'GFG','Hard']],
+  'sorting':[['Chocolate Distribution Problem','GFG','Easy'],['Minimum Swaps to Sort','GFG','Medium'],['Count Inversions in an Array','GFG','Hard']],
+  'prefix-sum':[['Longest Subarray with Sum K (handles negatives)','GFG','Medium']],
+  'simulation':[['Josephus Problem','GFG','Medium']],
+  'linked-lists':[['Detect and Remove Loop in Linked List','GFG','Medium'],['Intersection Point of Two Linked Lists','GFG','Easy'],['Flattening a Linked List','GFG','Hard'],['Clone a Linked List with Random Pointer','GFG','Hard']],
+  'stack-queue':[['The Celebrity Problem','GFG','Medium'],['Implement Stack using Queues','GFG','Easy'],['Redundant Brackets','GFG','Medium'],['Check if Queue Elements Can Be Arranged in Increasing Order','GFG','Medium']],
+  'trees-dfs':[['Boundary Traversal of Binary Tree','GFG','Medium'],['Diagonal Traversal of Binary Tree','GFG','Medium'],['Maximum Path Sum Between Two Leaves','GFG','Hard']],
+  'trees-bfs':[['Reverse Level Order Traversal','GFG','Easy'],['Vertical Order Traversal of a Binary Tree','GFG','Medium']],
+  'bst':[['Find a Pair with Given Sum in a BST','GFG','Easy'],['Merge Two BSTs','GFG','Hard'],['Largest BST Subtree in a Binary Tree','GFG','Hard']],
+  'backtracking':[['Rat in a Maze','GFG','Medium'],['M-Coloring Problem','GFG','Medium'],['Print All Palindromic Partitions of a String','GFG','Medium']],
+  'heaps':[['Merge K Sorted Arrays','GFG','Hard']],
+  'greedy':[['Minimum Platforms','GFG','Medium'],['Job Sequencing Problem','GFG','Medium'],['Fractional Knapsack','GFG','Medium']],
+  'mono-stack':[['Maximum of Minimum for Every Window Size','GFG','Hard']],
+  'dp-1d':[['0/1 Knapsack','GFG','Medium'],['Egg Dropping Puzzle','GFG','Hard'],['Rod Cutting Problem','GFG','Medium'],['Maximum Sum Increasing Subsequence','GFG','Medium']],
+  'dp-2d':[['Matrix Chain Multiplication','GFG','Hard'],['Boolean Parenthesization Problem','GFG','Hard']],
+  'graphs-bfs-dfs':[['Detect Cycle in an Undirected Graph (BFS/DFS)','GFG','Medium'],['Detect Cycle in a Directed Graph (BFS/DFS)','GFG','Medium'],['Snake and Ladder Problem (Min Throws)','GFG','Medium'],['Minimum Steps by Knight to Reach Target','GFG','Medium']],
+  'graphs-topo':[['Topological Sort (from scratch, Kahn\'s + DFS both)','GFG','Medium'],['All Topological Sorts of a DAG','GFG','Hard']],
+  'graphs-shortest':[['Bellman-Ford Algorithm (from scratch)','GFG','Hard'],['Floyd Warshall Algorithm (from scratch)','GFG','Hard'],['Prim\'s Algorithm for MST (from scratch)','GFG','Hard']],
+  'trie':[['Longest Common Prefix using Trie','GFG','Medium']],
+  'bit-manip':[['Power Set using Bitmasking','GFG','Medium']],
+  'math':[['GCD and LCM of Two Numbers','GFG','Easy'],['Modular Exponentiation','GFG','Medium'],['nCr % p (Combinatorics with Modulo)','GFG','Hard']],
+  'strings-adv':[['Rabin-Karp Algorithm for Pattern Searching','GFG','Hard'],['Z Function / Z-Algorithm for Pattern Searching','GFG','Hard'],['Manacher\'s Algorithm for Longest Palindromic Substring','GFG','Hard']],
+  'segment-tree':[['Build a Segment Tree from Scratch','GFG','Hard'],['Lazy Propagation in Segment Tree','GFG','Hard'],['Binary Indexed Tree (Fenwick) – Point Update, Range Query','GFG','Medium']],
+  'adv-graph':[["Kosaraju's Algorithm — Strongly Connected Components",'GFG','Hard'],['Articulation Points (Cut Vertices) in a Graph','GFG','Hard']],
+  'concurrency':[['Producer-Consumer with a Bounded Buffer (implement from scratch, no library queue)','Practice','Hard'],['Thread-Safe LRU Cache (add locking to your earlier LRU Cache solution)','Practice','Medium'],['Implement a Read-Write Lock from scratch','Practice','Hard'],['Implement a Simple Thread Pool / Worker Pool','Practice','Hard']],
+};
+
+// MAANG-level projects — what a 2+ YOE SDE candidate is expected to have
+// shipped/be able to whiteboard at Amazon, Google, Microsoft-tier bars.
+// type: Concept (design decision to reason about) · Build (thing to implement)
+const DSA_PROJECTS = {
+'proj-url-shortener':[
+  [1,'Requirements & capacity estimation — reads/writes per sec, storage growth over 5 years','Concept'],
+  [2,'Base62 / Base64 encoding service for short codes (counter-based vs random + collision check)','Build'],
+  [3,'DB schema design + choice: SQL (Postgres) vs NoSQL (DynamoDB) and why','Concept'],
+  [4,'Horizontal sharding / partitioning strategy for the URL table at billions of rows','Concept'],
+  [5,'Caching layer (Redis) for hot redirects — cache-aside vs write-through','Build'],
+  [6,'Rate limiting per API key (token bucket / sliding window)','Build'],
+  [7,'Load balancer + multiple stateless app servers','Build'],
+  [8,'Async analytics pipeline (Kafka/SQS) for click events, consumed into a warehouse','Build'],
+  [9,'Custom aliases, expiry/TTL, and soft-delete handling','Build'],
+  [10,'Observability: structured logging, metrics (p50/p95/p99 latency), alerting','Build'],
+  [11,'CI/CD pipeline + containerized deploy (Docker + ECS/K8s) on a cloud provider','Build'],
+  [12,'Load test at target QPS and document bottlenecks found & fixed','Build'],
+  [13,'Write a 1-page system design doc: requirements → high-level design → deep dives → trade-offs','Build'],
+],
+'proj-job-scheduler':[
+  [1,'Requirements — cron-style + one-off jobs, at-least-once delivery, retry policy','Concept'],
+  [2,'Job persistence layer (DB table: schedule, next_run, status, retry_count)','Build'],
+  [3,'Distributed locking so only one scheduler instance claims a due job (Redis/DB lease)','Build'],
+  [4,'Leader election across scheduler replicas (avoid duplicate dispatch)','Concept'],
+  [5,'Worker pool that pulls from a queue (SQS/RabbitMQ) and executes jobs','Build'],
+  [6,'Retry with exponential backoff + dead-letter queue for permanently failing jobs','Build'],
+  [7,'Idempotency keys so retried jobs do not double-execute side effects','Concept'],
+  [8,'Priority queues / job classes (e.g. high-priority vs batch)','Build'],
+  [9,'API to create/pause/cancel/inspect jobs (REST, auth-protected)','Build'],
+  [10,'Observability: per-job execution history, success/failure dashboards, alerting on stuck jobs','Build'],
+  [11,'Graceful shutdown & job draining on deploy (no lost/duplicated work mid-release)','Build'],
+  [12,'Containerized deploy + horizontal scaling of workers independent of the scheduler','Build'],
+  [13,'Write a 1-page system design doc covering consistency model & failure modes','Build'],
+],
+};
+function projLinks(p){
+  const url = 'https://www.google.com/search?q='+encodeURIComponent(p.name+' system design');
+  return `<div class="links"><a class="link-btn" href="${url}" target="_blank" rel="noopener">Resources</a></div>`;
+}
+
+const DSA_PROBLEMS = [];
+Object.keys(DSA_RAW).forEach(topicKey=>{
+  DSA_RAW[topicKey].forEach(row=>{
+    const [no, lc, name, diff] = row;
+    DSA_PROBLEMS.push({id: topicKey+'-'+no, topicKey, no, lc, name, diff, source:'LC'});
+  });
+});
+Object.keys(DSA_EXTRA).forEach(topicKey=>{
+  DSA_EXTRA[topicKey].forEach((row, idx)=>{
+    const [name, source, diff] = row;
+    DSA_PROBLEMS.push({id: topicKey+'-x'+idx, topicKey, no:'+', lc:null, name, diff, source});
+  });
+});
+Object.keys(DSA_PROJECTS).forEach(topicKey=>{
+  DSA_PROJECTS[topicKey].forEach(row=>{
+    const [no, name, diff] = row;
+    DSA_PROBLEMS.push({id: topicKey+'-'+no, topicKey, no, lc:null, name, diff, source:null, isProject:true});
+  });
+});
+
+function slugify(name){
+  return name.toLowerCase().replace(/\(.*?\)/g,'').replace(/[–—]/g,' ').replace(/[^a-z0-9\s-]/g,'').trim().replace(/\s+/g,'-').replace(/-+/g,'-');
+}
+function dsaLinks(p){
+  if(p.isProject){ return projLinks(p); }
+  const lcUrl = 'https://leetcode.com/problems/'+slugify(p.name)+'/';
+  const gfgUrl = 'https://www.google.com/search?q='+encodeURIComponent(p.name+' site:geeksforgeeks.org');
+  const cnUrl = 'https://www.google.com/search?q='+encodeURIComponent(p.name+' Coding Ninjas naukri code360');
+  return `<div class="links">
+    ${p.lc ? `<a class="link-btn" href="${lcUrl}" target="_blank" rel="noopener">LeetCode</a>` : ''}
+    <a class="link-btn" href="${gfgUrl}" target="_blank" rel="noopener">GFG</a>
+    <a class="link-btn" href="${cnUrl}" target="_blank" rel="noopener">Coding Ninjas</a>
+  </div>`;
+}
+
+/* =================================================================
+   DSA CLASS / FACULTY REFERENCE — powers the "Class" tab per topic
+   ================================================================= */
+const DSA_REFERENCE = {
+
+  "arrays-basics": {
+    faculty: "Striver",
+    playlist: "A2Z Arrays",
+    youtube: "https://www.youtube.com/playlist?list=PLgUwDviBIf0rENwdL0nEH0uGom9no0nyB"
+  },
+
+  "hashing": {
+    faculty: "Striver",
+    playlist: "Array & Hashing",
+    youtube: "https://www.youtube.com/playlist?list=PLgUwDviBIf0rENwdL0nEH0uGom9no0nyB"
+  },
+
+  "two-pointers": {
+    faculty: "Striver",
+    playlist: "Two Pointers",
+    youtube: "https://www.youtube.com/playlist?list=PLgUwDviBIf0rBT8io74a95xT-hDFZonNs"
+  },
+
+  "sliding-window": {
+    faculty: "Aditya Verma",
+    playlist: "Sliding Window",
+    youtube: "https://www.youtube.com/playlist?list=PL_z_8CaSLPWeM8BDJmIYDaoQ5zuwyxnfj"
+  },
+
+  "binary-search": {
+    faculty: "Striver",
+    playlist: "Binary Search",
+    youtube: "https://www.youtube.com/playlist?list=PLgUwDviBIf0pMFMWuuvDNMAkoQFi-h0ZF"
+  },
+
+  "sorting": {
+    faculty: "Abdul Bari",
+    playlist: "Sorting Algorithms",
+    youtube: "https://www.youtube.com/playlist?list=PLDN4rrl48XKpftQk9OEXXQVL8xi4XQ0L7"
+  },
+
+  "prefix-sum": {
+    faculty: "Striver",
+    playlist: "Arrays",
+    youtube: "https://www.youtube.com/playlist?list=PLgUwDviBIf0rENwdL0nEH0uGom9no0nyB"
+  },
+
+  "simulation": {
+    faculty: "Code Army",
+    playlist: "Implementation & Simulation",
+    youtube: "https://www.youtube.com/@CodeArmy105/playlists"
+  },
+
+  "linked-lists": {
+    faculty: "Striver",
+    playlist: "Linked List",
+    youtube: "https://www.youtube.com/playlist?list=PLgUwDviBIf0rAuz8tVcM0AymmhTRsfaLU"
+  },
+
+  "stack-queue": {
+    faculty: "Aditya Verma",
+    playlist: "Stack & Queue",
+    youtube: "https://www.youtube.com/playlist?list=PL_z_8CaSLPWdeOezg68SKkeLN4-T_jNHd"
+  },
+
+  "trees-dfs": {
+    faculty: "Striver",
+    playlist: "Binary Trees",
+    youtube: "https://www.youtube.com/playlist?list=PLgUwDviBIf0q8Hkd7bK2Bpryj2xVJk8Vk"
+  },
+
+  "trees-bfs": {
+    faculty: "Striver",
+    playlist: "Binary Trees",
+    youtube: "https://www.youtube.com/playlist?list=PLgUwDviBIf0q8Hkd7bK2Bpryj2xVJk8Vk"
+  },
+
+  "bst": {
+    faculty: "Striver",
+    playlist: "Binary Search Tree",
+    youtube: "https://www.youtube.com/playlist?list=PLgUwDviBIf0q8Hkd7bK2Bpryj2xVJk8Vk"
+  },
+
+  "backtracking": {
+    faculty: "Aditya Verma",
+    playlist: "Backtracking",
+    youtube: "https://www.youtube.com/playlist?list=PL_z_8CaSLPWdbOTog8Jxk9XOjzUs3egMP"
+  },
+
+  "heaps": {
+    faculty: "Aditya Verma",
+    playlist: "Heap",
+    youtube: "https://www.youtube.com/playlist?list=PL_z_8CaSLPWdtY9W22VjnPxG30CXNZpI9"
+  },
+
+  "greedy": {
+    faculty: "Striver",
+    playlist: "Greedy",
+    youtube: "https://www.youtube.com/playlist?list=PLgUwDviBIf0pmWCl2nepwGDO05a0R7x5n"
+  },
+
+  "mono-stack": {
+    faculty: "Aditya Verma",
+    playlist: "Stack",
+    youtube: "https://www.youtube.com/playlist?list=PL_z_8CaSLPWdeOezg68SKkeLN4-T_jNHd"
+  },
+
+  "design-oop": {
+    faculty: "Love Babbar",
+    playlist: "OOP in C++",
+    youtube: "https://www.youtube.com/results?search_query=Love+Babbar+OOP+C%2B%2B+playlist"
+  },
+
+  "dp-1d": {
+    faculty: "Aditya Verma",
+    playlist: "Dynamic Programming",
+    youtube: "https://www.youtube.com/playlist?list=PL_z_8CaSLPWekqhdCPmFohncHwz8TY2Go"
+  },
+
+  "dp-2d": {
+    faculty: "Striver",
+    playlist: "Dynamic Programming",
+    youtube: "https://www.youtube.com/playlist?list=PLgUwDviBIf0qUlt5H_kiKYaNSqJ81PMMY"
+  },
+
+  "dp-stocks": {
+    faculty: "Striver",
+    playlist: "Dynamic Programming",
+    youtube: "https://www.youtube.com/playlist?list=PLgUwDviBIf0qUlt5H_kiKYaNSqJ81PMMY"
+  },
+
+  "graphs-bfs-dfs": {
+    faculty: "Striver",
+    playlist: "Graphs",
+    youtube: "https://www.youtube.com/playlist?list=PLgUwDviBIf0oE3gA41TKO2H5bHpPd7fzn"
+  },
+
+  "graphs-topo": {
+    faculty: "Striver",
+    playlist: "Graphs",
+    youtube: "https://www.youtube.com/playlist?list=PLgUwDviBIf0oE3gA41TKO2H5bHpPd7fzn"
+  },
+
+  "graphs-shortest": {
+    faculty: "Striver",
+    playlist: "Graphs",
+    youtube: "https://www.youtube.com/playlist?list=PLgUwDviBIf0oE3gA41TKO2H5bHpPd7fzn"
+  }
+
+};
+
+/* =================================================================
+   AGENTIC AI ROADMAP DATA
+   Modeled from: Agentic_AI_GenAI_LLM_Mastery_Roadmap_FINAL.pdf
+   Each phase of the roadmap = one "topic". Items = concept/build/practice
+   checklist rows, mirroring the structure of the DSA tracker.
+   ================================================================= */
+const AG_TOPICS = [
+  {key:'p0-git', phase:1, name:'P0 · Git, Linux & Dev Env', tag:'core', pattern:'Branching/rebasing · shell · grep/sed/awk · env vars — 1 week'},
+  {key:'p1-python', phase:1, name:'P1 · Python for AI Engineering', tag:'core', pattern:'Fundamentals mastery → OOP → async/await → typing/pydantic → packaging — 4–5 weeks'},
+  {key:'p2-sql', phase:1, name:'P2 · SQL Mastery', tag:'core', pattern:'Joins · CTEs · window functions · indexing — 2–3 weeks'},
+  {key:'p3-data', phase:1, name:'P3 · NumPy, Pandas, Scikit-learn', tag:'core', pattern:'Vectorized ops · groupby/agg · train/test split — 2 weeks'},
+  {key:'p4-mldl', phase:1, name:'P4 · ML/DL Fundamentals', tag:'core', pattern:'Attention · tokenization · fine-tuning vs RAG — 2–3 weeks'},
+
+  {key:'p5-llm', phase:2, name:'P5 · LLM Engineering (Deep)', tag:'core', pattern:'PEFT/LoRA/QLoRA · quantization · inference optimization — 3–4 weeks'},
+  {key:'p6-prompt', phase:2, name:'P6 · Prompt Engineering', tag:'core', pattern:'Few-shot · CoT · schema reliability · injection awareness — 1 week'},
+  {key:'p7-rag', phase:2, name:'P7 · RAG Systems', tag:'core', pattern:'Chunking · embeddings · vector DBs · re-ranking · eval — 2–3 weeks'},
+  {key:'p8-agent-core', phase:2, name:'P8 · Agent Engineering Core', tag:'core', pattern:'Tool calling · planning · memory · MCP/A2A — 5–6 weeks · Highest ROI'},
+  {key:'p9-frameworks', phase:2, name:'P9 · Agent Frameworks Hands-On', tag:'core', pattern:'LangGraph · CrewAI/OpenAI SDK · LangChain — 2–3 weeks'},
+
+  {key:'p10-backend', phase:3, name:'P10 · Backend Engineering for Agents', tag:'core', pattern:'FastAPI · WebSockets · Redis · background jobs — 2 weeks'},
+  {key:'p11-ui', phase:3, name:'P11 · UI / Frontend for Agents', tag:'core', pattern:'Streaming chat UI · tool-call visualization — 1 week'},
+  {key:'p12-mq', phase:3, name:'P12 · Message Queues & Event-Driven Agents', tag:'core', pattern:'RabbitMQ/Kafka · event vs request/response — 1 week'},
+  {key:'p13-auth', phase:3, name:'P13 · Auth & Secret Management', tag:'core', pattern:'JWT/OAuth2 · RBAC vs ABAC · key rotation — 1 week'},
+  {key:'p14-db', phase:3, name:'P14 · Databases & Distributed Systems', tag:'core', pattern:'MongoDB · Elasticsearch · CAP theorem · Raft (conceptual) — 2 weeks'},
+  {key:'p15-prod', phase:3, name:'P15 · Production Engineering', tag:'core', pattern:'Docker · Kubernetes · Helm · CI/CD · monitoring — 2–3 weeks'},
+  {key:'p16-cloud', phase:3, name:'P16 · Cloud Deployment & Networking', tag:'core', pattern:'AWS · ECS/Fargate · Lambda · VPC/HTTPS — 2 weeks'},
+  {key:'p17-evals', phase:3, name:'P17 · AI Evals & LLMOps (Full Stack)', tag:'core', pattern:'MLflow · LangSmith/LangFuse · W&B · cost/latency routing — 2–3 weeks'},
+
+  {key:'p18-1-foundational', phase:4, name:'P18.1 · Security Foundations', tag:'core', pattern:'CIA triad · STRIDE threat modeling · attack surface'},
+  {key:'p18-2-owasp-web', phase:4, name:'P18.2 · OWASP Top 10 (Web)', tag:'core', pattern:'Injection · broken auth · XSS · insecure deserialization'},
+  {key:'p18-3-authz', phase:4, name:'P18.3 · Authentication & Authorization', tag:'core', pattern:'JWT internals · OAuth2/OIDC · RBAC vs ABAC · least privilege'},
+  {key:'p18-4-secure-code', phase:4, name:'P18.4 · Secure Coding Practices', tag:'core', pattern:'Input validation · output encoding · parameterized queries'},
+  {key:'p18-5-crypto', phase:4, name:'P18.5 · Cryptography Basics', tag:'optional', pattern:'Hashing vs encryption · bcrypt/argon2 · TLS/HTTPS'},
+  {key:'p18-6-api-net', phase:4, name:'P18.6 · API & Network Security', tag:'optional', pattern:'Rate limiting · CORS · API gateway · mTLS'},
+  {key:'p18-7-infra', phase:4, name:'P18.7 · Infrastructure & Cloud Security', tag:'optional', pattern:'Least-privilege IAM · VPC segmentation · container security'},
+  {key:'p18-8-ai-sec', phase:4, name:'P18.8 · AI/Agent-Specific Security', tag:'core', pattern:'Prompt injection · excessive agency · tool output sanitization — Highest Priority'},
+  {key:'p18-9-tools', phase:4, name:'P18.9 · Security Tools', tag:'optional', pattern:'bandit/Semgrep · ZAP/Burp · gitleaks/trivy'},
+  {key:'p18-10-practice', phase:4, name:'P18.10 · Security Practice', tag:'optional', pattern:'PortSwigger Academy · TryHackMe · attack your own agents'},
+
+  {key:'p19-framework', phase:5, name:'P19.1 · AI System Design Framework', tag:'core', pattern:'Model routing · grounding · latency/cost budget · eval loops'},
+  {key:'p19-pattern1', phase:5, name:'P19.2 · Pattern 1 — Enterprise RAG System', tag:'core', pattern:'Chunking heterogeneous docs · permission-aware retrieval'},
+  {key:'p19-pattern2', phase:5, name:'P19.2 · Pattern 2 — Multi-Agent Orchestration', tag:'core', pattern:'Context handoff · loop prevention · cross-agent debugging'},
+  {key:'p19-pattern3', phase:5, name:'P19.2 · Pattern 3 — Customer-Facing LLM Chat', tag:'core', pattern:'Streaming at scale · fallback models · per-user rate limiting'},
+  {key:'p19-pattern4', phase:5, name:'P19.2 · Pattern 4 — Text-to-SQL Agent at Scale', tag:'core', pattern:'Destructive-query prevention · schema drift · query caching'},
+  {key:'p19-pattern5', phase:5, name:'P19.2 · Pattern 5 — Autonomous Code Review Agent', tag:'core', pattern:'Write-access scoping · large-diff handling · noisy comments'},
+  {key:'p19-pattern6', phase:5, name:'P19.2 · Pattern 6 — LLM Inference Platform', tag:'optional', pattern:'Batching for GPU efficiency · version rollout · model routing'},
+  {key:'p19-nfr', phase:5, name:'P19.3 · AI-Specific NFRs', tag:'core', pattern:'Hallucination rate · token cost · P95 latency · guardrail fail mode'},
+
+  {key:'p20-capstones', phase:6, name:'P20 · The 3 Capstone Projects', tag:'core', pattern:'RAG Research Assistant · Multi-Agent Support · Text-to-SQL Agent'},
+  {key:'p20-extra', phase:6, name:'P20 · Additional Industry Projects', tag:'optional', pattern:'DevOps agent · Document/contract agent · Predictive maintenance'},
+  {key:'p21-interview', phase:6, name:'P21 · Communication & Interview Prep', tag:'core', pattern:'Problem→Approach→Trade-off→Result · STAR · 5–6 mock interviews'},
+];
+const AG_PHASE_NAMES = {
+  1:'Group 1 — Foundations (P0–P4) · Aug–mid Oct 2026',
+  2:'Group 2 — LLM & Agent Core (P5–P9) · mid Oct 2026–Feb 2027',
+  3:'Group 3 — Full-Stack & Production (P10–P17) · Feb–May 2027',
+  4:'Group 4 — Application Security (P18) · Ongoing, parallel throughout',
+  5:'Group 5 — AI System Design (P19) · May–Jun 2027',
+  6:'Group 6 — Portfolio & Interview Prep (P20–P21) · Throughout, intensify Jun–Jul 2027'
+};
+
+// Each row: [no, name, type, url(optional)]
+// type is one of: Concept, Build, Practice
+const AG_RAW = {
+'p0-git':[
+  [1,'Branching, merging & rebasing','Concept'],
+  [2,'PR workflow','Concept'],
+  [3,'Shell navigation & permissions','Concept'],
+  [4,'grep / sed / awk','Concept'],
+  [5,'Environment variables','Concept'],
+  [6,'Build: clean-history repo, feature-branch workflow','Build'],
+  [7,'Build: shell automation script','Build'],
+],
+'p1-python':[
+  [1,'Python fundamentals — variables, expressions, input/output, comments','Concept'],
+  [2,'Core data types — int, float, bool, str, None','Concept'],
+  [3,'Strings — indexing, slicing, methods, formatting, f-strings','Concept'],
+  [4,'Lists — indexing, slicing, methods, nested lists, copying','Concept'],
+  [5,'Tuples — packing, unpacking, immutability, use cases','Concept'],
+  [6,'Sets — uniqueness, set operations, membership, practical use','Concept'],
+  [7,'Dictionaries — keys/values, methods, nesting, iteration','Concept'],
+  [8,'Conditions — if/elif/else, truthiness, comparison and logical operators','Concept'],
+  [9,'Loops — for/while, range, enumerate, zip, break/continue','Concept'],
+  [10,'Comprehensions — list, dict and set comprehensions','Concept'],
+  [11,'Functions — parameters, return values, defaults, keyword arguments','Concept'],
+  [12,'*args and **kwargs — flexible function interfaces','Concept'],
+  [13,'Scope — local/global/nonlocal and LEGB lookup','Concept'],
+  [14,'Lambda, map(), filter(), reduce() and practical alternatives','Concept'],
+  [15,'Important Python built-ins — sorted, any, all, min, max, sum, len, isinstance','Concept'],
+  [16,'Mutable vs immutable objects — practical behavior and pitfalls','Concept'],
+  [17,'References, assignment, shallow copy vs deep copy','Concept'],
+  [18,'Modules, imports, packages and __name__ == "__main__"','Concept'],
+  [19,'Exceptions — try/except/else/finally, raising and custom exceptions','Concept'],
+  [20,'File handling — paths, text/JSON/CSV basics, context managers','Concept'],
+  [21,'Iterators — iter(), next() and the iterator protocol','Concept'],
+  [22,'Generators — yield, lazy evaluation and generator expressions','Concept'],
+  [23,'Practice: 20 Python fundamentals exercises without copying solutions','Practice'],
+  [24,'Practice: build a small CLI program using functions, collections, files and exceptions','Practice'],
+  [25,'Mastery test: solve practical Python problems from scratch with no notes','Practice'],
+  [26,'Mastery gate: explain core Python behavior and debug unfamiliar code independently','Practice'],
+  [27,'OOP in Python — classes, objects and __init__','Concept'],
+  [28,'OOP — instance/class/static methods, encapsulation and properties','Concept'],
+  [29,'OOP — inheritance, polymorphism, abstraction and composition','Concept'],
+  [30,'OOP — practical design patterns and clean class boundaries','Concept'],
+  [31,'Error handling — production-oriented exception design','Concept'],
+  [32,'Decorators','Concept'],
+  [33,'Generators — advanced patterns and practical use','Concept'],
+  [34,'async / await','Concept'],
+  [35,'Typing & pydantic','Concept'],
+  [36,'Packaging','Concept'],
+  [37,'Multiprocessing basics','Concept'],
+  [38,'Build: async CLI tool with typed inputs/outputs','Build'],
+  [39,'Mastery project: build a small Python service without following a tutorial','Build'],
+],
+'p2-sql':[
+  [1,'Relational model, SELECT/WHERE/ORDER BY/LIMIT','Concept'],
+  [2,'Data types','Concept'],
+  [3,'Aggregate functions, GROUP BY/HAVING','Concept'],
+  [4,'INNER/LEFT/RIGHT joins, anti-join, self joins','Concept'],
+  [5,'Scalar/correlated subqueries, EXISTS','Concept'],
+  [6,'CTEs (WITH), recursive CTEs','Concept'],
+  [7,'Indexing, EXPLAIN, query optimization','Concept'],
+  [8,'Window functions: ROW_NUMBER/RANK/DENSE_RANK/NTILE','Concept'],
+  [9,'LAG/LEAD, frame clauses, period-over-period','Concept'],
+  [10,'Build: DB + 20 queries, 3 wrapped as Python tool functions','Build'],
+  [11,'Practice: LeetCode Database, StrataScratch, Mode SQL Tutorial','Practice','https://leetcode.com/studyplan/top-sql-50/'],
+],
+'p3-data':[
+  [1,'NumPy: arrays, broadcasting, vectorized ops','Concept'],
+  [2,'Pandas: dataframes, groupby/agg, merging, cleaning','Concept'],
+  [3,'Scikit-learn: train/test split, fitting, eval metrics','Concept'],
+  [4,'Build: replicate 5 SQL queries from Phase 2 in Pandas','Build'],
+],
+'p4-mldl':[
+  [1,'Transformers & attention (Illustrated Transformer)','Concept','https://jalammar.github.io/illustrated-transformer/'],
+  [2,'Tokenization, embeddings, context windows','Concept'],
+  [3,'Fine-tuning vs PEFT/LoRA vs quantization','Concept'],
+  [4,'Regression, trees, ensembles, bias/variance, CV','Concept'],
+  [5,'Multi-modal models — vision-language (GPT-4V/Claude Vision) & audio (Whisper, TTS, Realtime voice agents)','Concept'],
+  [6,'Build: tokenize text with tiktoken','Build'],
+  [7,'Build: compute embedding similarity by hand','Build'],
+  [8,'Build: 1-page write-up on attention','Build'],
+],
+'p5-llm':[
+  [1,'PEFT / LoRA / QLoRA — when to fine-tune vs prompt vs RAG','Concept','https://huggingface.co/docs/peft'],
+  [2,'RLHF & DPO (Direct Preference Optimization) — how modern LLMs are actually aligned post-pretraining','Concept'],
+  [3,'Model / knowledge distillation — training a small fast model from a large one','Concept'],
+  [4,'Quantization — INT8/INT4 trade-offs','Concept'],
+  [5,'Inference optimization — vLLM, ONNX, TensorRT, speculative decoding','Concept','https://docs.vllm.ai'],
+  [6,'Mixture of Experts (MoE) — architecture behind most frontier models today','Concept'],
+  [7,'Model serving patterns — API vs self-hosted','Concept'],
+  [8,'Context window management at scale','Concept'],
+  [9,'Build: fine-tune a small OSS model with LoRA on a toy dataset','Build'],
+],
+'p6-prompt':[
+  [1,'System prompt structuring','Concept'],
+  [2,'Few-shot prompting','Concept'],
+  [3,'Chain-of-thought','Concept'],
+  [4,'Prompt-to-schema reliability','Concept'],
+  [5,'Structured output libraries — Instructor, Outlines, Pydantic-based schema enforcement','Concept'],
+  [6,'Prompt injection awareness','Concept'],
+  [7,'Build: reusable prompt template library + consistency test harness','Build'],
+],
+'p7-rag':[
+  [1,'Chunking strategies','Concept'],
+  [2,'Embedding models','Concept'],
+  [3,'Fine-tuning your own embedding model — contrastive learning on domain-specific pairs','Concept'],
+  [4,'Vector DBs — Chroma/Pinecone/Qdrant','Concept'],
+  [5,'Hybrid search','Concept'],
+  [6,'Re-ranking','Concept'],
+  [7,'RAG evaluation','Concept'],
+  [8,'Build: full RAG pipeline with re-ranking + 10-question eval script','Build'],
+],
+'p8-agent-core':[
+  [1,'Tool calling & structured output','Concept'],
+  [2,'Planning & reflection','Concept'],
+  [3,'Memory — short + long-term','Concept'],
+  [4,'Context engineering','Concept'],
+  [5,'Multi-agent systems','Concept'],
+  [6,'Human-in-the-loop','Concept'],
+  [7,'Workflow orchestration','Concept'],
+  [8,'Guardrails — NeMo Guardrails, Guardrails AI, Llama Guard for content moderation & safety rails','Concept'],
+  [9,'Streaming & parallel tool execution','Concept'],
+  [10,'MCP & A2A','Concept'],
+  [11,'Build: Research Assistant Agent (flagship) — plans, tools, streams, human-approval, memory','Build'],
+],
+'p9-frameworks':[
+  [1,'LangGraph (primary)','Concept','https://langchain-ai.github.io/langgraph/'],
+  [2,'CrewAI or OpenAI Agents SDK (comparison)','Concept'],
+  [3,'LangChain (utility pieces)','Concept'],
+  [4,'LlamaIndex / AutoGen toy examples','Concept'],
+  [5,'Build: two versions of Research Assistant + trade-off write-up','Build'],
+],
+'p10-backend':[
+  [1,'FastAPI','Concept','https://fastapi.tiangolo.com/'],
+  [2,'WebSockets','Concept'],
+  [3,'Redis','Concept'],
+  [4,'Background jobs','Concept'],
+  [5,'Build: agent wrapped in FastAPI with streaming + Redis session memory','Build'],
+],
+'p11-ui':[
+  [1,'React/HTML chat interface','Concept'],
+  [2,'Streaming token display','Concept'],
+  [3,'Live tool-call visualization','Concept'],
+  [4,'File upload for RAG','Concept'],
+  [5,'Build: working chat frontend for Research Assistant','Build'],
+],
+'p12-mq':[
+  [1,'RabbitMQ / Kafka fundamentals','Concept'],
+  [2,'Event-driven vs request/response triggers','Concept'],
+  [3,'Build: agent triggered by a queued event instead of direct HTTP','Build'],
+],
+'p13-auth':[
+  [1,'JWT / OAuth2','Concept'],
+  [2,'RBAC vs ABAC','Concept'],
+  [3,'Secrets management — env vars vs vaults','Concept'],
+  [4,'Key rotation','Concept'],
+  [5,'Build: JWT-authenticated agent API, zero hardcoded secrets','Build'],
+],
+'p14-db':[
+  [1,'MongoDB basics — document stores for logs/tool outputs','Concept'],
+  [2,'Elasticsearch basics','Concept'],
+  [3,'CAP theorem','Concept'],
+  [4,'Distributed systems: microservices, load balancing, Raft (conceptual)','Concept'],
+  [5,'Message queues revisited — reliability tie-in','Concept'],
+  [6,'Build: MongoDB-backed conversation log alongside Redis session cache','Build'],
+],
+'p15-prod':[
+  [1,'Docker','Concept'],
+  [2,'Kubernetes','Concept'],
+  [3,'Helm','Concept'],
+  [4,'CI/CD','Concept'],
+  [5,'Monitoring / logging / tracing','Concept'],
+  [6,'Caching, rate limiting, retries, fault tolerance','Concept'],
+  [7,'Build: Dockerized stack + Helm chart + GitHub Actions CI','Build'],
+],
+'p16-cloud':[
+  [1,'S3','Concept'],
+  [2,'ECS/Fargate or PaaS','Concept'],
+  [3,'GPU inference basics','Concept'],
+  [4,'Lambda','Concept'],
+  [5,'VPC / security groups / load balancers / HTTPS','Concept'],
+  [6,'Build: public, secured, HTTPS-fronted deployment','Build'],
+],
+'p17-evals':[
+  [1,'Offline/online evals, prompt/model versioning, A/B testing','Concept'],
+  [2,'LLM-as-judge — using a strong model to grade outputs at scale; bias pitfalls of self-grading','Concept'],
+  [3,'MLflow — experiment tracking','Concept','https://mlflow.org/'],
+  [4,'LangSmith or LangFuse — LLM tracing/eval','Concept','https://www.langchain.com/langsmith'],
+  [5,'Weights & Biases (conceptual)','Concept','https://wandb.ai/'],
+  [6,'Ray Serve / BentoML (conceptual)','Concept'],
+  [7,'Latency & cost optimization, model routing','Concept'],
+  [8,'LLM gateways & semantic caching — LiteLLM, Portkey, OpenRouter, GPTCache for multi-provider failover & cost control','Concept'],
+  [9,'Build: automated eval suite in CI + cost/latency dashboard + tracing','Build'],
+],
+'p18-1-foundational':[
+  [1,'CIA Triad','Concept'],
+  [2,'STRIDE threat modeling','Concept'],
+  [3,'Attack surface thinking','Concept'],
+],
+'p18-2-owasp-web':[
+  [1,'Injection','Concept','https://owasp.org/www-project-top-ten/'],
+  [2,'Broken authentication','Concept'],
+  [3,'Sensitive data exposure','Concept'],
+  [4,'XXE','Concept'],
+  [5,'Broken access control','Concept'],
+  [6,'Security misconfiguration','Concept'],
+  [7,'XSS','Concept'],
+  [8,'Insecure deserialization','Concept'],
+  [9,'Vulnerable components','Concept'],
+  [10,'Insufficient logging','Concept'],
+],
+'p18-3-authz':[
+  [1,'JWT internals','Concept'],
+  [2,'OAuth2/OIDC flows','Concept'],
+  [3,'RBAC vs ABAC','Concept'],
+  [4,'Least privilege','Concept'],
+  [5,'Secure session/cookie flags','Concept'],
+],
+'p18-4-secure-code':[
+  [1,'Input validation (treat LLM output as untrusted)','Concept'],
+  [2,'Output encoding','Concept'],
+  [3,'Parameterized queries','Concept'],
+  [4,'Safe deserialization','Concept'],
+  [5,'Dependency scanning — pip-audit, Snyk, Dependabot','Concept'],
+],
+'p18-5-crypto':[
+  [1,'Hashing vs encryption vs encoding','Concept'],
+  [2,'bcrypt / argon2 password hashing','Concept'],
+  [3,'TLS/HTTPS','Concept'],
+  [4,'Secrets management with key rotation','Concept'],
+],
+'p18-6-api-net':[
+  [1,'Rate limiting (incl. cost-based DoS protection on LLM bill)','Concept'],
+  [2,'CORS','Concept'],
+  [3,'API gateway patterns','Concept'],
+  [4,'mTLS for service-to-service auth','Concept'],
+],
+'p18-7-infra':[
+  [1,'Least-privilege IAM','Concept'],
+  [2,'VPC segmentation','Concept'],
+  [3,'Container security — trivy, never run as root','Concept'],
+  [4,'CI/CD secret hygiene','Concept'],
+],
+'p18-8-ai-sec':[
+  [1,'Prompt injection & indirect prompt injection','Concept','https://owasp.org/www-project-top-10-for-large-language-model-applications/'],
+  [2,'Excessive agency','Concept'],
+  [3,'Tool output sanitization','Concept'],
+  [4,'Data leakage via LLM outputs','Concept'],
+  [5,'Jailbreaking / guardrail bypass','Concept'],
+  [6,'Sandboxing tool execution — read-only DB roles','Concept'],
+],
+'p18-9-tools':[
+  [1,'SAST — bandit, Semgrep','Concept'],
+  [2,'DAST — OWASP ZAP, Burp Suite Community','Concept'],
+  [3,'Dependency — pip-audit, Snyk','Concept'],
+  [4,'Secrets — gitleaks, truffleHog','Concept'],
+  [5,'Containers — trivy','Concept'],
+],
+'p18-10-practice':[
+  [1,'PortSwigger Web Security Academy','Practice','https://portswigger.net/web-security'],
+  [2,'TryHackMe','Practice','https://tryhackme.com/'],
+  [3,'OWASP Juice Shop','Practice','https://owasp.org/www-project-juice-shop/'],
+  [4,'Attack your own Research Assistant — prompt injection','Practice'],
+  [5,"Attack your own Text-to-SQL agent's guardrails — SQL injection",'Practice'],
+  [6,'Excessive-agency tests on your Customer Support agent','Practice'],
+],
+'p19-framework':[
+  [1,'Model selection & routing','Concept'],
+  [2,'Grounding strategy — RAG vs fine-tuning vs both','Concept'],
+  [3,'Latency budget architecture','Concept'],
+  [4,'Cost architecture','Concept'],
+  [5,'Evaluation & feedback loops','Concept'],
+  [6,'Practice: Requirements → Grounding → Model/Routing → Diagram → Trade-offs → Eval → Failure Modes','Practice'],
+],
+'p19-pattern1':[
+  [1,'Chunking heterogeneous documents (PDFs, Slack, Confluence)','Concept'],
+  [2,'Permission-aware retrieval','Concept'],
+  [3,'Index freshness — incremental vs full rebuild','Concept'],
+  [4,'Trade-off: single index vs per-tenant indices','Concept'],
+  [5,'Trade-off: hybrid search vs pure vector search','Concept'],
+  [6,'Practice: design this pattern on paper, explain out loud','Practice'],
+],
+'p19-pattern2':[
+  [1,'Context handoff between agents','Concept'],
+  [2,'Preventing infinite loops','Concept'],
+  [3,'Observing/debugging a 5-agent chain','Concept'],
+  [4,'Trade-off: centralized orchestrator vs A2A','Concept'],
+  [5,'Practice: design this pattern on paper, explain out loud','Practice'],
+],
+'p19-pattern3':[
+  [1,'Streaming at scale (thousands of WebSocket connections)','Concept'],
+  [2,'Graceful degradation — fallback models','Concept'],
+  [3,'Per-user rate limiting without hurting power users','Concept'],
+  [4,'Trade-off: direct provider calls vs LLM gateway/router','Concept'],
+  [5,'Practice: design this pattern on paper, explain out loud','Practice'],
+],
+'p19-pattern4':[
+  [1,'Preventing destructive queries across many users','Concept'],
+  [2,'Handling schema changes without breaking the agent','Concept'],
+  [3,'Caching repeated/similar queries','Concept'],
+  [4,'Trade-off: read replicas vs direct production DB access','Concept'],
+  [5,'Practice: design this pattern on paper, explain out loud','Practice'],
+],
+'p19-pattern5':[
+  [1,'Scoping write access — merge vs comment only','Concept'],
+  [2,'Handling diffs that exceed context windows','Concept'],
+  [3,'Avoiding noisy low-value comments','Concept'],
+  [4,'Trade-off: full-repo context vs diff-only + retrieval','Concept'],
+  [5,'Practice: design this pattern on paper, explain out loud','Practice'],
+],
+'p19-pattern6':[
+  [1,'Batching for GPU efficiency vs single-user latency','Concept'],
+  [2,'Model version rollouts without downtime','Concept'],
+  [3,'Routing fast/cheap vs slow/capable model by complexity','Concept'],
+  [4,'Trade-off: vLLM/continuous batching vs per-instance','Concept'],
+  [5,'Practice: design this pattern on paper, explain out loud','Practice'],
+],
+'p19-nfr':[
+  [1,'Hallucination rate — measure & reduce','Concept'],
+  [2,'Token cost per request — 10K/100K/1M DAU math','Concept'],
+  [3,'P95 latency — streaming, optimistic UI, progress indicators','Concept'],
+  [4,'Data freshness for RAG','Concept'],
+  [5,'Guardrail failure mode — fail open or closed','Concept'],
+],
+'p20-capstones':[
+  [1,'Enterprise RAG Research Assistant — grounded, cited, streaming, human-approval','Build'],
+  [2,'Multi-Agent Customer Support System — event-driven, guardrails, escalation','Build'],
+  [3,'Text-to-SQL Data Analyst Agent — structured output, safe execution, reporting','Build'],
+  [4,'Each project: public deployment','Build'],
+  [5,'Each project: README with architecture diagram','Build'],
+  [6,'Each project: tests','Build'],
+  [7,'Each project: security review (P18 checklist)','Build'],
+  [8,'Each project: benchmark/eval report','Build'],
+],
+'p20-extra':[
+  [1,'Autonomous DevOps / code review agent','Build'],
+  [2,'Document/contract processing agent (RAG + risk flagging)','Build'],
+  [3,'Predictive maintenance agent (event-driven, anomaly detection)','Build'],
+],
+'p21-interview':[
+  [1,'Technical explanation structure: Problem → Approach → Trade-off → Result','Concept'],
+  [2,'STAR method for behavioral questions','Concept'],
+  [3,'Record & review 3-minute project walkthroughs after each milestone','Practice'],
+  [4,'Mock interview: coding (DSA/Python)','Practice'],
+  [5,'Mock interview: SQL','Practice'],
+  [6,'Mock interview: LLM/Agent discussion','Practice'],
+  [7,'Mock interview: AI system design (P19 patterns)','Practice'],
+  [8,'Mock interview: project deep dive','Practice'],
+  [9,'Mock interview: behavioral','Practice'],
+],
+};
+
+const AG_PROBLEMS = [];
+Object.keys(AG_RAW).forEach(topicKey=>{
+  AG_RAW[topicKey].forEach(row=>{
+    const [no, name, type, url] = row;
+    AG_PROBLEMS.push({id: topicKey+'-'+no, topicKey, no, name, diff:type, url: url||null, lc:null});
+  });
+});
+
+function agenticLinks(p){
+  const searchUrl = 'https://www.google.com/search?q='+encodeURIComponent(p.name);
+  const btns = [];
+  if(p.url){
+    btns.push(`<a class="link-btn" href="${p.url}" target="_blank" rel="noopener">Reference</a>`);
+  }
+  btns.push(`<a class="link-btn" href="${searchUrl}" target="_blank" rel="noopener">Search</a>`);
+  return `<div class="links">${btns.join('')}</div>`;
+}
+
+/* =================================================================
+   SYSTEM DESIGN & CS FUNDAMENTALS — FAANG/MAANG bar
+   4 calendar months starting Aug 2, sized for 2–3 hrs/day (~15–20 hrs/week).
+   Each "phase" here = one month. Each "topic" = one week within that month.
+   ================================================================= */
+const SD_TOPICS = [
+  {key:'sd-w1-os', phase:1, name:'Week 1 (Aug 2–8) · Operating Systems', tag:'core', pattern:'Processes/threads · scheduling · concurrency · deadlocks · memory management'},
+  {key:'sd-w2-dbms', phase:1, name:'Week 2 (Aug 9–15) · DBMS', tag:'core', pattern:'ACID · normalization · indexing · isolation levels · SQL vs NoSQL'},
+  {key:'sd-w3-networks', phase:1, name:'Week 3 (Aug 16–22) · Computer Networks', tag:'core', pattern:'OSI/TCP-IP · TCP vs UDP · HTTP/TLS · DNS · load balancing basics'},
+  {key:'sd-w4-oop', phase:1, name:'Week 4 (Aug 23–31) · OOP & Design Patterns Intro', tag:'core', pattern:'4 pillars · SOLID · UML · Creational/Structural/Behavioral patterns'},
+
+  {key:'sd-w5-ood', phase:2, name:'Week 5 (Sep 1–7) · OOD Recap + Creational Deep Dive', tag:'core', pattern:'Association/Aggregation/Composition · Factory vs Abstract Factory · Builder'},
+  {key:'sd-w6-patterns', phase:2, name:'Week 6 (Sep 8–14) · Structural & Behavioral Patterns', tag:'core', pattern:'Adapter/Decorator/Facade/Proxy · Observer/Strategy/State/Command'},
+  {key:'sd-w7-lld1', phase:2, name:'Week 7 (Sep 15–21) · LLD Practice — Batch 1', tag:'core', pattern:'Parking Lot · Elevator · Vending Machine · Library Management System'},
+  {key:'sd-w8-lld2', phase:2, name:'Week 8 (Sep 22–30) · LLD Practice — Batch 2', tag:'core', pattern:'Chess/Tic-Tac-Toe · Splitwise · BookMyShow · Logging Framework'},
+
+  {key:'sd-w9-scale', phase:3, name:'Week 9 (Oct 1–7) · Scalability Basics', tag:'core', pattern:'Vertical vs horizontal · load balancing algos · caching · CDN'},
+  {key:'sd-w10-db-scale', phase:3, name:'Week 10 (Oct 8–14) · Databases at Scale', tag:'core', pattern:'Sharding · replication · CAP/PACELC · SQL vs NoSQL scaling'},
+  {key:'sd-w11-async', phase:3, name:'Week 11 (Oct 15–21) · Messaging & Async', tag:'core', pattern:'Kafka vs RabbitMQ vs SQS · pub-sub · event-driven · idempotency'},
+  {key:'sd-w12-blocks', phase:3, name:'Week 12 (Oct 22–31) · Advanced Building Blocks', tag:'core', pattern:'Consistent hashing · rate limiting · API gateway · microservices vs monolith'},
+
+  {key:'sd-w13-hld1', phase:4, name:'Week 13 (Nov 1–7) · HLD Practice — Batch 1', tag:'core', pattern:'URL Shortener · Rate Limiter · Pastebin'},
+  {key:'sd-w14-hld2', phase:4, name:'Week 14 (Nov 8–14) · HLD Practice — Batch 2', tag:'core', pattern:'Twitter/X · Instagram'},
+  {key:'sd-w15-hld3', phase:4, name:'Week 15 (Nov 15–21) · HLD Practice — Batch 3', tag:'core', pattern:'WhatsApp/Chat System · Uber/Ride-Sharing'},
+  {key:'sd-w16-hld4', phase:4, name:'Week 16 (Nov 22–30) · HLD Practice — Batch 4 + Mocks', tag:'core', pattern:'YouTube/Netflix · Web Crawler · timed mock system design interviews'},
+
+  {key:'sd-w17-retail', phase:5, name:'Week 17 (Dec 1–7) · Retail & E-Commerce HLD', tag:'core', pattern:'Order/Inventory · Shopping Cart · Product Catalog Search · Payments · Notifications — Walmart/Amazon-flavored'},
+  {key:'sd-w18-search-feed', phase:5, name:'Week 18 (Dec 8–14) · Search & Feed Ranking HLD', tag:'core', pattern:'Autocomplete/Typeahead · News Feed Ranking · Collaborative Doc Editing — Google/Meta-flavored'},
+
+  {key:'sd-behavioral', phase:6, name:'Behavioral & Leadership Principles', tag:'core', pattern:'STAR method · Amazon 16 LPs · Meta/Google/Microsoft values · 8–10 stories mapped to multiple questions — ongoing, parallel throughout'},
+];
+const SD_PHASE_NAMES = {
+  1:'Month 1 — Aug 2 → Aug 31 · CS Fundamentals',
+  2:'Month 2 — Sep 1 → Sep 30 · Low-Level Design (LLD)',
+  3:'Month 3 — Oct 1 → Oct 31 · HLD Fundamentals (Building Blocks)',
+  4:'Month 4 — Nov 1 → Nov 30 · HLD Practice (Full Systems)',
+  5:'Month 5 — Dec 1 → Dec 14 · Domain-Specific HLD (Retail, Search, Feed)',
+  6:'Ongoing — Behavioral, Parallel Throughout the Whole Plan',
+};
+
+// Each row: [no, name, type]  — type: Concept / Build / Design(Practice-style system design problem)
+const SD_RAW = {
+'sd-w1-os':[
+  [1,'Processes vs threads','Concept'],
+  [2,'CPU scheduling — FCFS, SJF, Round Robin, Priority','Concept'],
+  [3,'Context switching & the PCB','Concept'],
+  [4,'Concurrency primitives — mutex, semaphore, monitors','Concept'],
+  [5,"Deadlocks — 4 conditions, prevention, avoidance (Banker's algorithm)",'Concept'],
+  [6,'Memory management — paging, segmentation, virtual memory','Concept'],
+  [7,'Practice: work through 10 CPU-scheduling numericals','Design'],
+  [8,'Build: 1-page cheat sheet — process vs thread, deadlock conditions','Build'],
+],
+'sd-w2-dbms':[
+  [1,'ACID properties','Concept'],
+  [2,'Normalization — 1NF through BCNF','Concept'],
+  [3,'Indexing — B-Tree vs B+Tree vs hash index','Concept'],
+  [4,'Transactions & isolation levels — dirty/phantom/non-repeatable reads','Concept'],
+  [5,'Locking — pessimistic vs optimistic, two-phase locking','Concept'],
+  [6,'SQL vs NoSQL — when to reach for which','Concept'],
+  [7,'Practice: answer 10 classic DBMS interview questions out loud','Design'],
+  [8,'Build: 1-page cheat sheet — ACID + isolation levels','Build'],
+],
+'sd-w3-networks':[
+  [1,'OSI model & TCP/IP model','Concept'],
+  [2,'TCP vs UDP — when each is used','Concept'],
+  [3,'HTTP/HTTPS & the TLS handshake','Concept'],
+  [4,'DNS resolution flow, end to end','Concept'],
+  [5,'Load balancing basics — L4 vs L7','Concept'],
+  [6,'REST vs GraphQL vs gRPC','Concept'],
+  [7,'Practice: trace a request from browser to server, explain every hop out loud','Design'],
+  [8,'Build: 1-page networking cheat sheet','Build'],
+],
+'sd-w4-oop':[
+  [1,'4 pillars of OOP — encapsulation, abstraction, inheritance, polymorphism','Concept'],
+  [2,'SOLID principles','Concept'],
+  [3,'Reading & drawing UML class diagrams','Concept'],
+  [4,'Creational patterns — Singleton, Factory, Builder','Concept'],
+  [5,'Structural patterns — Adapter, Decorator, Facade','Concept'],
+  [6,'Behavioral patterns — Observer, Strategy, Command','Concept'],
+  [7,'Practice: implement Singleton + Factory in your main language','Build'],
+  [8,'Build: mini project applying 3 different design patterns','Build'],
+],
+'sd-w5-ood':[
+  [1,'Object-oriented design process — requirements → classes → relationships','Concept'],
+  [2,'Association vs Aggregation vs Composition','Concept'],
+  [3,'Interfaces vs abstract classes — when to use which','Concept'],
+  [4,'Deep dive: Factory Method vs Abstract Factory','Concept'],
+  [5,'Deep dive: Builder pattern for complex object construction','Concept'],
+  [6,'Practice: design the class diagram for a Library Management System','Design'],
+  [7,'Build: code the Library Management System class skeleton','Build'],
+],
+'sd-w6-patterns':[
+  [1,'Structural: Adapter, Bridge, Composite, Decorator, Facade, Proxy','Concept'],
+  [2,'Behavioral: Observer, Strategy, State, Command, Chain of Responsibility','Concept'],
+  [3,'Practice: match the right pattern to 5 given scenarios','Design'],
+  [4,'Build: implement Observer pattern (pub-sub) in code','Build'],
+  [5,'Build: implement Strategy pattern (interchangeable payment methods) in code','Build'],
+],
+'sd-w7-lld1':[
+  [1,'Design a Parking Lot System','Design'],
+  [2,'Design an Elevator System','Design'],
+  [3,'Design a Vending Machine','Design'],
+  [4,'Design a Library Management System (full, code it out)','Design'],
+],
+'sd-w8-lld2':[
+  [1,'Design Tic-Tac-Toe / Chess','Design'],
+  [2,'Design Splitwise (expense sharing)','Design'],
+  [3,'Design BookMyShow / Movie Ticket Booking','Design'],
+  [4,'Design a Logging Framework','Design'],
+  [5,'Build: pick your strongest LLD solution, write full code + unit tests','Build'],
+],
+'sd-w9-scale':[
+  [1,'Vertical vs horizontal scaling','Concept'],
+  [2,'Load balancing algorithms — round robin, least connections, consistent hashing','Concept'],
+  [3,'Caching strategies — cache-aside, write-through, write-back, TTL & eviction (LRU/LFU)','Concept'],
+  [4,'CDN — what it solves, edge caching','Concept'],
+  [5,'Practice: back-of-envelope capacity estimation exercise (QPS, storage, bandwidth)','Design'],
+],
+'sd-w10-db-scale':[
+  [1,'Sharding strategies — range, hash, directory-based','Concept'],
+  [2,'Replication — leader-follower, multi-leader, quorum','Concept'],
+  [3,'CAP theorem & PACELC','Concept'],
+  [4,'SQL scaling vs NoSQL scaling trade-offs','Concept'],
+  [5,'Practice: design a sharding strategy for a multi-tenant SaaS app','Design'],
+],
+'sd-w11-async':[
+  [1,'Message queues — Kafka vs RabbitMQ vs SQS','Concept'],
+  [2,'Pub-sub vs point-to-point messaging','Concept'],
+  [3,'Event-driven architecture','Concept'],
+  [4,'Idempotency & at-least-once vs exactly-once delivery','Concept'],
+  [5,'Practice: design an async order-processing pipeline','Design'],
+],
+'sd-w12-blocks':[
+  [1,'Consistent hashing — why and how','Concept'],
+  [2,'Rate limiting algorithms — token bucket, leaky bucket, sliding window','Concept'],
+  [3,'API gateway pattern','Concept'],
+  [4,'Microservices vs monolith trade-offs','Concept'],
+  [5,'Practice: whiteboard the full building-block toolkit from memory, no notes','Design'],
+],
+'sd-w13-hld1':[
+  [1,'Design a URL Shortener','Design'],
+  [2,'Design a Rate Limiter','Design'],
+  [3,'Design Pastebin','Design'],
+],
+'sd-w14-hld2':[
+  [1,'Design Twitter / X','Design'],
+  [2,'Design Instagram','Design'],
+],
+'sd-w15-hld3':[
+  [1,'Design WhatsApp / a Chat System','Design'],
+  [2,'Design Uber / a Ride-Sharing App','Design'],
+],
+'sd-w16-hld4':[
+  [1,'Design YouTube / Netflix','Design'],
+  [2,'Design a Web Crawler','Design'],
+  [3,'Mock: pick 2 random HLD problems, whiteboard each in 45 minutes, no lookups','Design'],
+],
+'sd-w17-retail':[
+  [1,'Design an E-Commerce Order & Inventory Management System — stock counts staying correct across many warehouses and many simultaneous buyers','Design'],
+  [2,'Design a Distributed Shopping Cart — cart state that survives across devices, app restarts, and server failures without losing items','Design'],
+  [3,'Design a Product Search & Catalog System — millions of SKUs, filters (price/brand/rating), typo-tolerant search, near-instant results','Design'],
+  [4,'Design a Payment & Ledger System — money movement that is never double-charged or silently lost, even if a server crashes mid-transaction','Design'],
+  [5,'Design a Notification System — order updates, price drops, and delivery alerts sent to millions of users across push/SMS/email without duplicate or lost notifications','Design'],
+  [6,'Practice: for each of the 5 above, explicitly call out what happens during a partial failure (payment succeeds but inventory update fails, etc.)','Design'],
+],
+'sd-w18-search-feed':[
+  [1,'Design a Search Autocomplete / Typeahead System — suggestions appearing within milliseconds as someone types','Design'],
+  [2,'Design a News Feed Ranking System — deciding what shows up first in a feed out of thousands of possible posts, personalized per user','Design'],
+  [3,'Design a Collaborative Document Editor (Google Docs style) — multiple people typing in the same document at once without overwriting each other','Design'],
+  [4,'Mock: pick 1 retail-flavored + 1 search/feed-flavored problem, whiteboard each in 45 minutes, no lookups','Design'],
+],
+'sd-behavioral':[
+  [1,'Learn the STAR method properly — Situation, Task, Action, Result — and why interviewers actually listen for the "Action" and "Result" parts most closely','Concept'],
+  [2,'Read and understand all 16 Amazon Leadership Principles, not just the famous ones (Customer Obsession, Ownership, Bias for Action, Dive Deep, Deliver Results, Earn Trust, Insist on Highest Standards, etc.)','Concept'],
+  [3,'Understand Meta\'s interview values — Move Fast, Be Bold, Focus on Long-Term Impact, Be Open, Build Social Value — and what kind of story demonstrates each one','Concept'],
+  [4,'Understand Google\'s "Googleyness & Leadership" signal — comfort with ambiguity, humility with data, and collaborative (not solo-hero) problem solving','Concept'],
+  [5,'Understand Microsoft\'s growth-mindset culture — stories about learning from failure and taking feedback are valued more than "I was always right" stories','Concept'],
+  [6,'Understand Walmart\'s culture pillars — Respect for the Individual, Service to the Customer, Strive for Excellence, Act with Integrity — practical, less startup-flashy than the others','Concept'],
+  [7,'Build a bank of 8–10 real stories from your 2+ years of experience — a conflict with a teammate, a time you missed a deadline, a time you pushed back on a bad decision, your biggest technical win, a time you had to learn something fast','Build'],
+  [8,'Map each story to multiple possible questions/LPs — a single strong story (e.g. "fixed a production incident") can usually answer "tell me about a failure," "tell me about ownership," and "tell me about working under pressure" all at once','Build'],
+  [9,'Write each story down in 4–6 sentences using STAR, and practice saying it out loud in under 2 minutes — a good answer is concise, not a 10-minute ramble','Build'],
+  [10,'Mock behavioral round: have someone (or record yourself) ask you 5 random behavioral questions with no warning, and review the recording for filler words and rambling','Practice'],
+],
+};
+
+const SD_PROBLEMS = [];
+Object.keys(SD_RAW).forEach(topicKey=>{
+  SD_RAW[topicKey].forEach(row=>{
+    const [no, name, diff] = row;
+    SD_PROBLEMS.push({id: topicKey+'-'+no, topicKey, no, name, diff, lc:null, source:null});
+  });
+});
+function sdLinks(p){
+  const url = 'https://www.google.com/search?q='+encodeURIComponent(p.name+(p.diff==='Design' ? ' system design interview' : ''));
+  return `<div class="links"><a class="link-btn" href="${url}" target="_blank" rel="noopener">Search</a></div>`;
+}
+
+/* =================================================================
+   RESUME & PORTFOLIO — checklist data
+   type: Concept (thing to understand) / Build (thing to actually write/create) / Practice (thing to do repeatedly)
+   Each row: [no, name, type, url(optional real resource; otherwise a scoped search is built automatically)]
+   ================================================================= */
+const RESUME_TOPICS = [
+  {key:'resume-summary', phase:1, name:'Header & Summary', tag:'core', pattern:'Name/contact/links · optional 2-3 line summary — skip the objective-statement clichés'},
+  {key:'resume-experience', phase:1, name:'Work Experience Bullets', tag:'core', pattern:'Action verb → what you built → measurable impact, every single bullet'},
+  {key:'resume-projects', phase:1, name:'Projects Section', tag:'core', pattern:'2-4 strongest projects, each linked to a real repo a reviewer will actually click'},
+  {key:'resume-skills', phase:1, name:'Skills Section', tag:'core', pattern:'Depth over breadth — only list what you can defend in an interview'},
+  {key:'resume-education', phase:1, name:'Education & Certifications', tag:'core', pattern:'Condensed once you have 2+ years of experience — this is not the focus anymore'},
+
+  {key:'resume-format', phase:2, name:'Formatting & Length', tag:'core', pattern:'One page at 2 YOE · clean font · no graphics/columns that break parsing'},
+  {key:'resume-ats', phase:2, name:'ATS & Keyword Optimization', tag:'core', pattern:'Match language from the job description without keyword-stuffing'},
+
+  {key:'resume-google', phase:3, name:'Tailoring for Google', tag:'core', pattern:'"Googleyness" · rigor and scale · concise, no fluff'},
+  {key:'resume-meta', phase:3, name:'Tailoring for Meta', tag:'core', pattern:'Move fast · individual ownership · high-impact, shipped work'},
+  {key:'resume-amazon', phase:3, name:'Tailoring for Amazon', tag:'core', pattern:'Leadership Principles woven into bullets, not just behavioral answers'},
+  {key:'resume-microsoft', phase:3, name:'Tailoring for Microsoft', tag:'core', pattern:'Growth mindset · collaboration · cross-team impact'},
+  {key:'resume-walmart', phase:3, name:'Tailoring for Walmart', tag:'core', pattern:'Pragmatic, scale-and-reliability-flavored, less startup-flashy'},
+
+  {key:'resume-github', phase:4, name:'GitHub Profile & Pinned Repos', tag:'core', pattern:'4-6 strongest pinned repos · clean READMEs · real commit history'},
+  {key:'resume-portfolio-site', phase:4, name:'Personal Portfolio Website', tag:'core', pattern:'One page that expands on the resume with demos, writeups, and links'},
+  {key:'resume-linkedin', phase:4, name:'LinkedIn Profile', tag:'core', pattern:'Headline, About section, and Featured section aligned with your resume'},
+];
+const RESUME_PHASE_NAMES = {
+  1:'Phase 1 — Content Foundations',
+  2:'Phase 2 — Formatting & ATS',
+  3:'Phase 3 — Company-Specific Tailoring',
+  4:'Phase 4 — GitHub, Portfolio Site & LinkedIn',
+};
+
+const RESUME_RAW = {
+'resume-summary':[
+  [1,'Put name, phone, email, city (no full address needed), LinkedIn URL, GitHub URL, and portfolio URL at the top — all clickable if this is a PDF/web version','Build'],
+  [2,'Skip the old-fashioned "Objective" statement ("Seeking a challenging role...") — it wastes space and says nothing a reviewer needs','Concept'],
+  [3,'If you use a summary at all, keep it to 2-3 lines: who you are, your strongest skill area, and what you are looking for next — many strong resumes at 2+ YOE skip it entirely and let the experience section speak','Build'],
+  [4,'Make sure your headline role title on the resume matches what you actually want to be hired for, not just your last job title verbatim','Concept'],
+],
+'resume-experience':[
+  [1,'Every bullet starts with a strong action verb in past tense (Built, Designed, Led, Reduced, Migrated) — never "Responsible for..."','Build'],
+  [2,'Every bullet includes a number wherever possible — latency reduced by X%, users served, dollars saved, requests/sec handled, team size led','Build'],
+  [3,'Use the "Action verb + what you built/did + measurable result" formula consistently across every single bullet, not just a few','Build'],
+  [4,'Cut anything that just describes a responsibility with no outcome — "Worked on backend services" says nothing; "Redesigned the checkout service, cutting p95 latency from 800ms to 150ms" says everything','Concept'],
+  [5,'List 3-5 bullets per role, most recent role gets the most space, older roles get fewer, more condensed bullets','Build'],
+  [6,'Read the Tech Interview Handbook resume guide for a full walkthrough of writing strong experience bullets','Concept','https://www.techinterviewhandbook.org/resume/'],
+],
+'resume-projects':[
+  [1,'Pick your 2-4 strongest projects — quality beats quantity, a resume listing 8 small projects looks unfocused','Build'],
+  [2,'Every project links directly to a real, working GitHub repo or live demo the reviewer can actually click and open','Build'],
+  [3,'Describe each project the same way as a work-experience bullet: what you built, what you used, and what the measurable outcome was (users, stars, performance number, or scale handled)','Build'],
+  [4,'For each of your Realtime Projects (from the Agentic AI tracker), write one tight 2-3 line resume version — the tracker has the full depth, the resume needs the compressed version','Build'],
+  [5,'If you contributed to open source, list it here too — real PRs merged into a known repo are a strong signal reviewers specifically look for','Concept'],
+],
+'resume-skills':[
+  [1,'Group skills into categories: Languages, Backend, Frontend, Databases, Cloud/DevOps, AI/LLM tooling — not one giant unsorted list','Build'],
+  [2,'Only list a skill if you can comfortably answer a follow-up interview question about it — padding the list with things you have only briefly touched backfires','Concept'],
+  [3,'Make sure your most important skills (the ones matching the job description) appear at least 2-3 times across summary, experience, and skills sections — this helps both human skimmers and ATS parsers','Concept'],
+  [4,'Update this section per-application to mirror the specific job description\'s language where it genuinely matches your experience','Practice'],
+],
+'resume-education':[
+  [1,'Once you have 2+ years of experience, shrink the education section to degree, school, and graduation year — no need for coursework lists anymore','Build'],
+  [2,'List relevant certifications (cloud certs, etc.) only if they are genuinely relevant to the role you are applying for','Concept'],
+  [3,'Move education below experience and projects in the page order — at 2+ YOE, your work is the lead story now, not your degree','Build'],
+],
+'resume-format':[
+  [1,'Keep it to one page at 2+ years of experience — MAANG reviewers spend seconds, not minutes, on a first pass','Concept'],
+  [2,'Use a clean, single-column layout — no tables, text boxes, or graphics; many ATS parsers scramble multi-column layouts','Build'],
+  [3,'Pick one professional font (10-12pt), black text, white background — save the personality for your portfolio site, not the resume','Build'],
+  [4,'Export as a text-selectable PDF (not an image/scan) so both ATS systems and humans can copy text out of it','Build'],
+  [5,'Proofread for consistent tense (past tense for past roles, present tense only for your current role) and consistent bullet punctuation','Practice'],
+],
+'resume-ats':[
+  [1,'Read the actual job description and note the specific tools/skills/terms it repeats — these are the keywords the ATS is likely scanning for','Practice'],
+  [2,'Naturally weave matching keywords into your bullets where they are true — never list a technology you cannot speak to just to pass a scanner','Concept'],
+  [3,'Avoid putting critical information only inside graphics, headers/footers, or text boxes — some ATS parsers skip these entirely','Build'],
+  [4,'Use standard section headings (Experience, Projects, Skills, Education) rather than creative alternatives — parsers are trained on the standard ones','Build'],
+],
+'resume-google':[
+  [1,'Read Google\'s own "How we hire" page to understand what they say they look for directly from the source','Concept','https://www.google.com/about/careers/applications/how-we-hire/'],
+  [2,'Emphasize rigor, scale, and data-driven decisions in your bullets — Google reviewers respond well to precise, quantified impact','Concept'],
+  [3,'Keep the resume concise and let achievements speak for themselves rather than using promotional language — Google explicitly says concision and precision matter more than length','Concept'],
+],
+'resume-meta':[
+  [1,'Emphasize individual ownership and speed — "Designed, built, and shipped X end-to-end" reads much stronger to Meta than "Contributed to X"','Concept'],
+  [2,'Highlight any project where you moved from idea to shipped/live quickly — this maps directly to Meta\'s "Move Fast" value','Concept'],
+  [3,'If you have measurable user-facing or business impact (adoption, engagement, revenue), lead with it — Meta reviewers respond strongly to impact framed in business terms','Concept'],
+],
+'resume-amazon':[
+  [1,'Read Amazon\'s own explanation of how the Leadership Principles show up in hiring, straight from Amazon\'s own blog','Concept','https://www.aboutamazon.com/news/workplace/amazon-leadership-principles-interview'],
+  [2,'Rewrite 2-3 of your strongest bullets so they implicitly demonstrate a Leadership Principle (Ownership, Bias for Action, Dive Deep) without literally naming the principle in the bullet','Build'],
+  [3,'Prepare to expand on any bullet in Leadership-Principle terms verbally — Amazon interviewers will ask "tell me more about that" and expect a STAR-shaped answer','Practice'],
+],
+'resume-microsoft':[
+  [1,'Highlight examples of learning from failure or incorporating feedback — Microsoft\'s growth-mindset culture values this more than a flawless track record','Concept'],
+  [2,'Emphasize cross-team collaboration and influence beyond your immediate team, if you have examples — this maps well to how Microsoft evaluates impact','Concept'],
+],
+'resume-walmart':[
+  [1,'Lean into scale, reliability, and pragmatic engineering trade-offs in your bullets rather than "move fast and break things" framing','Concept'],
+  [2,'If you have any e-commerce/retail/logistics-adjacent experience or projects (see the System Design tracker\'s retail HLD week), foreground it specifically for Walmart applications','Concept'],
+  [3,'Walmart doesn\'t publish hiring-culture material as visibly as the others — when in doubt, default to the general FAANG-resume best practices from the References tab','Concept'],
+],
+'resume-github':[
+  [1,'Pin your 4-6 strongest repos on your GitHub profile — this is one of the first things a technical reviewer clicks after your resume','Build'],
+  [2,'Every pinned repo needs a clear README: what it does, how to run it, and ideally a screenshot or demo link','Build'],
+  [3,'Make sure commit history looks like real, incremental development — not one giant "initial commit" — reviewers specifically look at this','Concept'],
+  [4,'Add a short, professional GitHub profile README (the special repo named exactly after your username) summarizing who you are and linking to your best work','Build'],
+  [5,'Browse the GitHub topic pages for portfolio inspiration — see how other engineers structure their pinned repos and profile READMEs','Practice','https://github.com/topics/software-engineer-portfolio'],
+],
+'resume-portfolio-site':[
+  [1,'Build one simple portfolio site (even a single page) that expands on your resume with live demo links, short project writeups, and your Realtime Projects from the Agentic AI tracker','Build'],
+  [2,'Keep the design clean and fast-loading — a slow or over-designed portfolio site can hurt more than having none at all','Concept'],
+  [3,'Link your portfolio site prominently at the top of your resume so it is one click away','Build'],
+  [4,'Browse a curated, opt-in gallery of real developer portfolios for structural inspiration (not to copy content) before building your own','Practice','https://github.com/emmabostian/developer-portfolios'],
+],
+'resume-linkedin':[
+  [1,'Write a headline that states your role + your strongest specialty (e.g. "Software Engineer · Backend & Agentic AI Systems") instead of just your current job title','Build'],
+  [2,'Rewrite your About section in first person, summarizing your experience and what you are looking for next — recruiters read this before your resume in many cases','Build'],
+  [3,'Add your best 2-3 projects to the Featured section with links, mirroring what is on your resume and portfolio site','Build'],
+  [4,'Turn on "Open to Work" visible to recruiters only (not your current employer) if you are actively looking','Concept'],
+],
+};
+const RESUME_PROBLEMS = [];
+Object.keys(RESUME_RAW).forEach(topicKey=>{
+  RESUME_RAW[topicKey].forEach(row=>{
+    const [no, name, diff, url] = row;
+    RESUME_PROBLEMS.push({id: topicKey+'-'+no, topicKey, no, name, diff, url: url||null, lc:null});
+  });
+});
+function resumeLinks(p){
+  const searchUrl = 'https://www.google.com/search?q='+encodeURIComponent(p.name.length>90 ? p.name.slice(0,90) : p.name);
+  const btns = [];
+  if(p.url){ btns.push(`<a class="link-btn" href="${p.url}" target="_blank" rel="noopener">Open Resource</a>`); }
+  btns.push(`<a class="link-btn" href="${searchUrl}" target="_blank" rel="noopener">Search</a>`);
+  return `<div class="links">${btns.join('')}</div>`;
+}
+
+/* =================================================================
+   RESUME REFERENCES & PORTFOLIO SEARCH — real public guides/templates,
+   plus scoped, browsable search links (never specific private profiles)
+   ================================================================= */
+const RESUME_REF_GROUPS = [
+  {
+    title: 'Resume Writing Guides (real, free, widely used)',
+    sub: 'Written by ex-FAANG hiring managers and engineers — these are the actual playbooks recruiters at these companies reference.',
+    links: [
+      { name:'Tech Interview Handbook — Resume Guide', desc:'Free, detailed FAANG-focused resume guide written by an ex-Meta engineering lead. Covers exact bullet-writing formulas with real before/after examples.', url:'https://www.techinterviewhandbook.org/resume/' },
+      { name:'The Tech Resume Inside Out', desc:'A widely-recommended, in-depth guide by Gergely Orosz, built on interviews with 15+ hiring managers/recruiters from Google, Meta, Amazon, Microsoft, and others. Includes 3 resume templates and 5 real before/after case studies.', url:'https://thetechresume.com/' },
+      { name:'FAANG Tech Leads — Resume Handbook', desc:'Resume handbook and checklist from an ex-Meta hiring manager, with anonymized real resume examples that got candidates into FAANG companies.', url:'https://www.faangtechleads.com/' },
+      { name:'12 Real Tech Resumes That Got FAANG Interviews', desc:'Actual (anonymized to protect privacy) resumes that landed interviews at Google, Meta, and other top companies, with commentary on exactly why each one worked.', url:'https://igotanoffer.com/blogs/tech/tech-resume-examples' },
+    ]
+  },
+  {
+    title: 'Real Resume Templates You Can Actually Use',
+    sub: 'Clean, ATS-safe templates built specifically for tech/FAANG applications — start from one of these instead of a generic template.',
+    links: [
+      { name:'FAANGPath Simple LaTeX Resume Template', desc:'A clean, ATS-friendly LaTeX resume template built specifically by FAANG mentors for tech applications — widely used because it parses cleanly through ATS systems.', url:'https://github.com/Elijas/latex-resume-template' },
+    ]
+  },
+  {
+    title: 'Official Company Hiring Resources (straight from the source)',
+    sub: 'What these companies say about their own process, in their own words.',
+    links: [
+      { name:'Google — How We Hire', desc:'Google\'s own official page explaining their hiring process and what they look for, directly from Google Careers.', url:'https://www.google.com/about/careers/applications/how-we-hire/' },
+      { name:'Amazon — Leadership Principles in Interviews', desc:'Amazon\'s own official blog post from an Amazon manager explaining how the 16 Leadership Principles are used in interviews, with example strategies.', url:'https://www.aboutamazon.com/news/workplace/amazon-leadership-principles-interview' },
+    ]
+  },
+  {
+    title: 'Portfolio & GitHub Inspiration (opt-in, public galleries)',
+    sub: 'Curated collections where engineers voluntarily submitted their own portfolios for others to browse — study structure and layout, not specific content.',
+    links: [
+      { name:'Developer Portfolios — Curated Inspiration Gallery', desc:'A large, community-maintained list of developer portfolio websites submitted voluntarily by their owners specifically for other developers to browse for inspiration.', url:'https://github.com/emmabostian/developer-portfolios' },
+      { name:'GitHub Topic: software-engineer-portfolio', desc:'Browsable GitHub topic page listing hundreds of open-source portfolio website repos — see real code, not just screenshots, for how others structure their site.', url:'https://github.com/topics/software-engineer-portfolio' },
+      { name:'GitHub Topic: portfolio-template', desc:'Ready-to-fork portfolio website templates built by other developers — a fast way to get a clean site live, then make it your own.', url:'https://github.com/topics/portfolio-template' },
+    ]
+  },
+  {
+    title: 'Search Like a Recruiter — Browse Public Profiles Yourself',
+    sub: 'These are live search links, not pre-compiled lists of individuals. Click through and browse public LinkedIn/GitHub profiles yourself for structural inspiration — how people phrase headlines, order sections, and describe projects.',
+    links: [
+      { name:'LinkedIn: Software Engineers at Google', desc:'Opens a LinkedIn people-search filtered to software engineers who list Google as their employer.', url:'https://www.linkedin.com/search/results/people/?keywords=Software%20Engineer%20Google' },
+      { name:'LinkedIn: Software Engineers at Meta', desc:'Opens a LinkedIn people-search filtered to software engineers who list Meta as their employer.', url:'https://www.linkedin.com/search/results/people/?keywords=Software%20Engineer%20Meta' },
+      { name:'LinkedIn: Software Engineers at Amazon', desc:'Opens a LinkedIn people-search filtered to software engineers who list Amazon as their employer.', url:'https://www.linkedin.com/search/results/people/?keywords=Software%20Engineer%20Amazon' },
+      { name:'LinkedIn: Software Engineers at Microsoft', desc:'Opens a LinkedIn people-search filtered to software engineers who list Microsoft as their employer.', url:'https://www.linkedin.com/search/results/people/?keywords=Software%20Engineer%20Microsoft' },
+      { name:'LinkedIn: Software Engineers at Walmart', desc:'Opens a LinkedIn people-search filtered to software engineers who list Walmart Global Tech as their employer.', url:'https://www.linkedin.com/search/results/people/?keywords=Software%20Engineer%20Walmart%20Global%20Tech' },
+      { name:'Google: Personal Portfolio Sites of Agentic AI Engineers', desc:'A scoped Google search for personal portfolio websites (github.io/personal domains) belonging to engineers who work on agentic AI/LLM systems — good for structural inspiration on how to present AI project work.', url:'https://www.google.com/search?q=site:github.io+OR+site:vercel.app+"software+engineer"+"agentic+AI"+portfolio' },
+      { name:'GitHub Search: "resume" + "software engineer" repos', desc:'Live GitHub code search for repositories people have published containing their own resume source files — useful for seeing real LaTeX/Markdown resume source, not just PDFs.', url:'https://github.com/search?q=resume+software+engineer+FAANG&type=repositories' },
+    ]
+  },
+];
+
+function renderResumeRefs(){
+  const wrap = document.getElementById('refsWrap-resume');
+  if(!wrap) return;
+  wrap.innerHTML = RESUME_REF_GROUPS.map(group=>{
+    const linksHtml = group.links.map(l=>`
+      <div class="dataset-item">
+        <div class="dataset-text">
+          <div class="dataset-name">${l.name}</div>
+          <div class="dataset-desc">${l.desc}</div>
+        </div>
+        <a class="dataset-link" href="${l.url}" target="_blank" rel="noopener">Open →</a>
+      </div>`).join('');
+    return `
+      <div class="refs-group">
+        <div class="refs-group-title">${group.title}</div>
+        <div class="refs-group-sub">${group.sub}</div>
+        ${linksHtml}
+      </div>`;
+  }).join('');
+}
+
+/* =================================================================
+   WIRE UP ALL APPS + VIEW SWITCHER  (GATE tracker removed, Resume tracker added)
+   ================================================================= */
+function initTrackerApps(){
+  buildApp({
+    suffix:'dsa', TOPICS: DSA_TOPICS, PROBLEMS: DSA_PROBLEMS, PHASE_NAMES: DSA_PHASE_NAMES,
+    storageKey: 'dsa-progress-v1', makeRowLinks: dsaLinks, REFERENCE: DSA_REFERENCE
+  });
+  buildApp({
+    suffix:'agentic', TOPICS: AG_TOPICS, PROBLEMS: AG_PROBLEMS, PHASE_NAMES: AG_PHASE_NAMES,
+    storageKey: 'agentic-ai-progress-v1', makeRowLinks: agenticLinks
+  });
+  buildApp({
+    suffix:'sysdesign', TOPICS: SD_TOPICS, PROBLEMS: SD_PROBLEMS, PHASE_NAMES: SD_PHASE_NAMES,
+    storageKey: 'sysdesign-progress-v1', makeRowLinks: sdLinks
+  });
+  buildApp({
+    suffix:'resume', TOPICS: RESUME_TOPICS, PROBLEMS: RESUME_PROBLEMS, PHASE_NAMES: RESUME_PHASE_NAMES,
+    storageKey: 'resume-progress-v1', makeRowLinks: resumeLinks
+  });
+
+  const btnDsa = document.getElementById('btnDsa');
+  const btnAgentic = document.getElementById('btnAgentic');
+  const btnSysdesign = document.getElementById('btnSysdesign');
+  const btnResume = document.getElementById('btnResume');
+  const viewDsa = document.getElementById('view-dsa');
+  const viewAgentic = document.getElementById('view-agentic');
+  const viewSysdesign = document.getElementById('view-sysdesign');
+  const viewResume = document.getElementById('view-resume');
+  const allViews = [viewDsa, viewAgentic, viewSysdesign, viewResume];
+  const allBtns = [btnDsa, btnAgentic, btnSysdesign, btnResume];
+  function activate(view, btn, btnThemeClass){
+    allViews.forEach(v=> v.classList.remove('visible'));
+    allBtns.forEach(b=> b.classList.remove('active','agentic','sysdesign','resume'));
+    view.classList.add('visible');
+    btn.classList.add('active');
+    if(btnThemeClass) btn.classList.add(btnThemeClass);
+  }
+  btnDsa.addEventListener('click', ()=> activate(viewDsa, btnDsa, null));
+  btnAgentic.addEventListener('click', ()=> activate(viewAgentic, btnAgentic, 'agentic'));
+  btnSysdesign.addEventListener('click', ()=> activate(viewSysdesign, btnSysdesign, 'sysdesign'));
+  btnResume.addEventListener('click', ()=> activate(viewResume, btnResume, 'resume'));
+}
+
+/* =================================================================
+   REALTIME PROJECTS — detailed, plain-English project specs for the
+   Agentic AI tracker's dedicated "Realtime Projects" tab.
+   Each project: overview, stack, requirements (title+long body),
+   functionalities (name + detailed "what's needed" + "how it works"),
+   and realtime dataset/API links with descriptions.
+   ================================================================= */
+const REALTIME_PROJECTS = [
+  {
+    name: 'Project 1 — Realtime Multi-Agent Customer Support System',
+    tagline: 'Live chat comes in → an agent decides what kind of problem it is → a second agent answers using your real docs → if things get messy, a human takes over.',
+    overview: "Think of this as a small team of AI workers instead of one bot. Messages from customers arrive continuously, exactly like a real support inbox — not as a batch file you process once a day. The first agent's only job is to read a message and decide what kind of problem it is. Based on that decision, a second agent looks up the answer in your real company documents (so it never makes things up) and replies in real time, word by word, like a person typing. If a customer sounds angry, or the same problem keeps repeating, the system quietly stops trying to solve it itself and hands the conversation to a real human. This project is a strong choice for MAANG interviews because it touches almost everything companies want to see: realtime data handling, multiple agents working together, RAG (grounded answers), safety guardrails, and a human fallback — all in one working system you can demo live.",
+    stack: ['Python','FastAPI','WebSockets','Redis','Vector DB (Chroma/Pinecone/Qdrant)','LLM API (OpenAI/Anthropic/open-source)','Docker'],
+    requirements: [
+      {
+        title: 'The system must react to messages the moment they arrive, not later',
+        body: "In a real support tool, a customer should never feel like they are waiting for a batch job to run. This means your system cannot simply store incoming messages in a database and check it every few minutes. Instead, every new message needs to trigger the agent immediately — the same way your phone rings the instant someone calls you, instead of you checking your call log once an hour. This is what makes the whole project 'realtime' instead of just another chatbot demo."
+      },
+      {
+        title: 'One agent must first figure out what kind of problem this is',
+        body: "Not every message needs the same kind of help. A billing question is very different from a technical bug report, which is different from someone asking for a refund. Before your system tries to answer anything, it needs a first step that reads the message and labels it — for example 'billing', 'technical', 'refund', or 'general question'. This label is what lets the rest of the system behave differently depending on the situation, instead of treating every message the same way."
+      },
+      {
+        title: 'Every answer must come from your real documents, never invented by the AI',
+        body: "A language model can sound confident even when it is wrong. In a customer support tool, a wrong but confident-sounding answer can cause real damage — a customer might follow bad advice about a refund policy that does not actually exist. To prevent this, the system must always search your actual FAQ or product documentation first, and only let the AI answer using the specific text it found. If nothing relevant is found, the AI should say it does not know rather than guessing."
+      },
+      {
+        title: 'Upset or repeat-problem customers must be handed to a human',
+        body: "Not everything should be automated. If a customer is clearly frustrated, or if the AI has already tried to solve the same issue twice without success, the system needs to notice this pattern and stop trying to auto-reply. Instead, it should create a proper support ticket and alert a human agent to take over. This is called 'human-in-the-loop' — it shows you understand that AI systems need a safety net, which is exactly what interviewers at big companies look for."
+      }
+    ],
+    functionalities: [
+      {
+        name: 'Live Message Intake',
+        needed: "You need something that can receive one customer message at a time, the instant it is sent — not a database table you read from occasionally. A WebSocket connection (a live, always-open line between the browser and your server) or a message stream like Redis Streams or Kafka works well here. This is the entry point of your whole system.",
+        how: "When a customer types a message and hits send, it travels over the open WebSocket connection straight to your backend. Your backend does not wait or check anything — it immediately picks up the message and starts processing it. Think of it like a receptionist who answers the phone the second it rings, rather than checking a voicemail box later."
+      },
+      {
+        name: 'Intent Classification (the "router" agent)',
+        needed: "You need a short, clear prompt that lists your categories (for example: billing, technical, refund, general) and asks the AI to pick exactly one for the incoming message. This is usually just one small call to the language model — it does not need to be complicated.",
+        how: "Every time a new message arrives, your system sends the message text along with the list of categories to the AI and asks 'which one of these best describes this message?'. The AI replies with a single word, like 'billing'. Your code then reads that word and uses it like a switchboard operator, sending the conversation down the correct path — for example, straight to the RAG answer engine if it's a factual question, or to the escalation check if it sounds urgent."
+      },
+      {
+        name: 'RAG Answer Engine (grounded, non-hallucinating replies)',
+        needed: "You need your FAQs and product documentation broken into small chunks (a paragraph or two each), converted into embeddings (numerical representations of meaning), and stored in a vector database such as Chroma, Pinecone, or Qdrant. This is what lets the system 'search by meaning' instead of just searching for exact words.",
+        how: "When a genuine question comes in, the system converts that question into the same kind of embedding and searches the vector database for the chunks of text that are closest in meaning. It then takes those chunks and pastes them directly into the prompt sent to the AI, along with an instruction like 'answer only using the information below'. Because the AI is reading real text instead of relying on its own memory, the answer stays accurate and grounded in your actual documentation."
+      },
+      {
+        name: 'Sentiment & Escalation Guardrail',
+        needed: "You need a second, very quick check that runs either as a small AI call or a simple sentiment-analysis model, and a rule for what counts as 'too far' — for example, three angry messages in a row, or the same issue repeated twice without resolution.",
+        how: "After every customer message, this guardrail scores the tone as calm, frustrated, or angry, and also checks whether this looks like a repeated unresolved issue. If either check crosses your threshold, the system stops sending automatic replies for that conversation and instead creates a ticket that a real human agent will see, along with a short summary of what has already been tried. This protects customers from getting stuck in a loop with a bot that cannot help them."
+      },
+      {
+        name: 'Streaming Reply to the User',
+        needed: "You need the ability to stream the AI's response token by token (word by word, essentially) instead of waiting for the entire answer to finish generating before showing anything. Most LLM APIs support this as a 'streaming' mode.",
+        how: "As soon as the AI starts generating its answer, each small piece of text is sent immediately over the same WebSocket connection to the customer's screen, so they see the reply appear gradually — exactly like watching someone type in a live chat. This matters because it makes the system feel fast and alive, even if the full answer takes a few seconds to fully generate."
+      },
+      {
+        name: 'Memory Across a Conversation',
+        needed: "You need a short-term storage system (Redis works well) where you can save the history of a conversation under a unique conversation ID.",
+        how: "Every time a message or a reply happens in a conversation, it gets appended to that conversation's stored history. So if a customer says 'my order number is 12345' in one message and then asks 'when will it arrive?' two messages later, the AI can look back at the stored history and still know which order they're asking about — without the customer having to repeat themselves."
+      },
+      {
+        name: 'Observability Dashboard',
+        needed: "You need a simple log of every conversation — what category it was, how long it took to respond, and whether it got escalated to a human — plus a basic page or chart to display this information.",
+        how: "Every time something important happens (a message classified, a reply sent, an escalation triggered), your system writes a small log entry to a database table. A simple dashboard then reads from that table and shows live numbers — how many tickets came in today, average response time, how many were escalated. This is what turns your project from 'a cool demo' into something that looks like a real, production-minded system, which is exactly what interviewers want to see."
+      }
+    ],
+    datasets: [
+      {
+        name: 'Customer Support on Twitter (Kaggle)',
+        desc: 'About 3 million real customer support conversations from 20 major brands. Perfect for two things: training or testing your intent classifier on real messages, and replaying the messages one by one (with a small delay between each) to simulate a live, realtime stream of incoming support tickets.',
+        url: 'https://www.kaggle.com/datasets/thoughtvector/customer-support-on-twitter'
+      },
+      {
+        name: 'Bitext Customer Support LLM Chatbot Training Dataset',
+        desc: 'A ready-made dataset of (question, intent, answer) examples across 27 different support intents. Useful for shaping your category list realistically and for testing whether your RAG engine gives answers similar in quality to a real support agent.',
+        url: 'https://huggingface.co/datasets/bitext/Bitext-customer-support-llm-chatbot-training-dataset'
+      }
+    ]
+  },
+  {
+    name: 'Project 2 — Realtime Market Intelligence & Trading Signal Agent',
+    tagline: 'Watches live prices and news continuously → an agent reasons about both together → gives a Buy/Sell/Hold signal with a plain-English reason, checked by safety rules before anyone sees it.',
+    overview: "This project simulates what a junior analyst might do all day: keep an eye on live prices, check the news whenever something moves, and form an opinion — but here, an AI agent does it continuously and explains its reasoning in plain English. The agent never touches real money and never places a real trade; it only produces a suggestion, and every suggestion has to pass through a rule-based safety check before it's shown to anyone. What makes this project stand out in interviews is that it clearly demonstrates 'tool calling' — the agent has to actively decide to look something up (the news) mid-way through its reasoning, rather than just answering from a static prompt. It also shows you understand that AI outputs need guardrails, not blind trust, which is one of the biggest concerns companies have about deploying agents in the real world.",
+    stack: ['Python','FastAPI','WebSockets','LLM API with tool/function calling','Binance/Yahoo Finance API','News API','SQLite/Postgres for logging'],
+    requirements: [
+      {
+        title: 'The agent must watch prices continuously, not just check once',
+        body: "A useful market agent cannot just look at a price one time and form an opinion forever — prices move constantly. Your system needs an always-open connection to a live price feed so that it always has the most recent data available, the same way a trader keeps a chart open all day instead of glancing at it once in the morning."
+      },
+      {
+        title: 'The agent must also check news before forming an opinion, not price alone',
+        body: "Price movement by itself does not tell you why something is moving. A stock or coin can be dropping because of a real, important reason (bad news) or for no clear reason at all (normal fluctuation). Your agent needs to actively fetch recent news headlines as part of its reasoning process — this is what makes it an 'agent' rather than a simple script, because it is choosing to gather more information before deciding."
+      },
+      {
+        title: 'Every signal must come with a plain-English reason',
+        body: "A signal that just says 'Buy' with no explanation is not trustworthy and not useful in an interview demo either. Every output from the agent needs to include a short explanation of why it reached that conclusion — for example 'price has been climbing steadily for the last hour and there is no negative news, so this looks like a Hold-to-Buy situation'. This is what lets a human quickly judge whether the reasoning actually makes sense."
+      },
+      {
+        title: 'The agent must never be allowed to place a real trade on its own',
+        body: "This is a safety requirement, not a technical one, but it matters a lot in an interview. Your system should be designed so the AI's opinion is always just a suggestion. A separate, simple rule-based layer (not the AI itself) checks that suggestion against basic safety rules before anything real happens, and a human always makes the final call. This shows you think about AI safety, not just AI capability."
+      }
+    ],
+    functionalities: [
+      {
+        name: 'Live Price Feed',
+        needed: "You need an open WebSocket connection to a live market data source — for example, Binance's public WebSocket for crypto prices (no account needed), or a polling loop that checks a stock API like Yahoo Finance every few seconds if you prefer stocks.",
+        how: "The connection stays open in the background and a new price update arrives roughly once a second. Your system keeps a small rolling window in memory — for example, the last 100 prices — and uses that window to calculate a simple trend, like 'price has gone up steadily for the last 10 minutes' or 'price is bouncing up and down with no clear direction'."
+      },
+      {
+        name: 'News/Sentiment Tool Call',
+        needed: "You need a 'tool' — basically just a function your agent is allowed to call — that fetches the latest news headlines for whatever stock or coin is being watched, using a service like NewsAPI.",
+        how: "While the agent is in the middle of reasoning about what signal to give, it decides to call this tool, the same way a person might pause and Google something before answering a question. It receives a handful of recent headlines back, reads them, and factors whether the news sounds positive, negative, or neutral into its final decision. This 'pause and look something up' behavior is exactly what interviewers mean by agentic tool use."
+      },
+      {
+        name: 'Reasoning & Signal Generation',
+        needed: "You need one well-structured prompt that gives the AI both pieces of information it has gathered — the recent price trend and the news summary — and asks it to think it through step by step before giving a final answer of Buy, Sell, or Hold.",
+        how: "The agent is instructed to reason out loud first (this is called chain-of-thought): it considers the price trend, then considers the news, then weighs them against each other, and only after that does it commit to one final label along with a short reason. This step-by-step approach produces much more sensible signals than just asking for an instant answer, because it stops the agent from reacting to price movement alone."
+      },
+      {
+        name: 'Risk Guardrail',
+        needed: "You need a small set of plain rules that sit after the AI's suggestion — things like 'never suggest risking more than 2% of a portfolio on one signal' or 'downgrade to Hold if recent price swings have been unusually large'. These rules are written in normal code, not decided by the AI.",
+        how: "Every suggestion coming out of the reasoning step first passes through this rule layer before a user ever sees it. If the suggestion breaks a rule, the system automatically changes it to 'Hold' and explains which rule stopped it — for example 'downgraded to Hold: volatility too high right now'. This proves that your project understands the difference between what an AI wants to say and what is actually safe to show someone."
+      },
+      {
+        name: 'Realtime Alerting',
+        needed: "You need a simple way to notify someone the moment something changes — this could be as simple as a live badge on a dashboard, or a real notification through email or a Slack webhook.",
+        how: "Whenever the guardrail-approved signal actually changes — for example moving from Hold to Buy — the system fires the alert immediately rather than waiting for someone to refresh a page or check back later. This is what makes the system feel genuinely 'live' rather than something you have to keep manually checking."
+      },
+      {
+        name: 'Backtest / Explainability Log',
+        needed: "You need a simple table that records every signal the agent gave, the price at that exact moment, and then, later, what the price actually did an hour or a day afterward.",
+        how: "Every signal gets logged with a timestamp and price. A background job then comes back later and fills in what actually happened to the price after that signal. Over time, this builds a track record you can show in an interview — for example, 'out of the last 50 signals, 34 were directionally correct' — which is far more convincing than simply saying the project works."
+      }
+    ],
+    datasets: [
+      {
+        name: 'Binance Public WebSocket Streams',
+        desc: 'Free, no API key required, gives you live crypto price ticks and order book updates roughly once a second. This is the easiest realtime price feed to start with because there is no signup process.',
+        url: 'https://developers.binance.com/docs/binance-spot-api-docs/web-socket-streams'
+      },
+      {
+        name: 'Yahoo Finance via yfinance (Python library)',
+        desc: 'Free, near-realtime stock and ETF price and volume data if you would rather build this around stocks than crypto — easy to pull into Python with just a few lines of code.',
+        url: 'https://pypi.org/project/yfinance/'
+      },
+      {
+        name: 'NewsAPI.org',
+        desc: 'A free-tier API that returns live news headlines, searchable by company name, stock ticker, or coin name — this is what powers the news tool-call step of the agent.',
+        url: 'https://newsapi.org/'
+      }
+    ]
+  },
+  {
+    name: 'Project 3 — LLM Gateway & Multi-Model Router Service',
+    tagline: 'Every request in your company hits one gateway first → the gateway decides which model should actually answer it, remembers what it can to save money, and never lets one bad model or one runaway user bring the whole system down.',
+    overview: "This project is different from the first two — instead of building one agent that talks to customers, you are building the piece of infrastructure that sits *behind* every agent in a company and controls how they talk to language models. Every large company running multiple AI features internally (search assistant, support bot, coding assistant, and so on) eventually needs exactly this: one central service that all of those features send their requests through, instead of each feature calling the model API directly on its own. This project is the single best way to show a MAANG interviewer that you understand LLMs are not magic — they are just another expensive, sometimes-unreliable backend service that needs the same discipline as a database or a payment processor: caching, rate limiting, fallback logic, and cost control. This is genuinely what senior/2+YOE AI infrastructure roles are judged on, more than raw prompting skill.",
+    stack: ['Python','FastAPI','Redis','Multiple LLM Provider APIs (OpenAI, Anthropic, open-source via vLLM)','Postgres for logging/cost tracking','Docker'],
+    requirements: [
+      {
+        title: 'One single entry point for every AI request in the system, not many separate integrations',
+        body: "If every team in a company calls OpenAI or Anthropic directly from their own code, you end up with no central control — no one knows the total cost, no one can switch providers easily, and there's no consistent way to apply safety rules. This project requires building one gateway service that every internal application sends its AI requests to. The gateway then decides what actually happens next. This single-entry-point pattern is exactly how real companies run this at scale."
+      },
+      {
+        title: 'The gateway must pick the right model for each request, not always use the most expensive one',
+        body: "Not every request needs your most powerful (and most expensive) model. A simple request like 'summarize this in one sentence' can often be handled by a small, cheap, fast model, while a genuinely hard reasoning request needs the expensive one. The gateway needs logic that looks at each incoming request and decides which model is the right fit — this is called 'model routing', and it is one of the biggest real-world cost levers a company has."
+      },
+      {
+        title: 'Repeated or near-identical requests should not hit the expensive model twice',
+        body: "In a real system, many requests are similar or exactly the same — for example, ten different users asking the same FAQ-style question. If every single one of those goes all the way to the model API, you are paying for the same answer over and over, and making users wait longer than necessary. The gateway needs a caching layer so that when it recognizes a repeated (or very similar) request, it can return a stored answer instantly instead of calling the model again."
+      },
+      {
+        title: 'One misbehaving user or one failing model must not take down the whole system',
+        body: "If one user starts sending an unusually high number of requests, or one particular model provider starts failing or responding very slowly, that should not be allowed to slow down or crash the experience for everyone else. The gateway needs rate limiting per user/team, and it needs the ability to automatically fall back to a different model if the first choice is down or too slow — this is what makes it production-grade instead of a fragile demo."
+      }
+    ],
+    functionalities: [
+      {
+        name: 'Unified Request API',
+        needed: "You need one consistent API endpoint (for example POST /v1/generate) that every internal application calls, regardless of which underlying model will actually end up answering the request. The request should include the prompt, which internal app/team is calling, and optionally a 'quality level' hint (fast/cheap vs. best-quality).",
+        how: "Instead of the support bot, the coding assistant, and the search feature each having their own separate code to call OpenAI or Anthropic directly, all three send their requests to this one gateway endpoint in the same format. The gateway is the only piece of code in the whole company that actually talks to the outside model providers — everything else talks to the gateway."
+      },
+      {
+        name: 'Model Routing Logic',
+        needed: "You need a simple decision layer — this can start as a set of rules (e.g. 'if prompt is under 50 words and no complex reasoning keywords, use the cheap model') and can later be upgraded to a small classifier model that predicts task difficulty.",
+        how: "When a request comes in, the router looks at things like prompt length, which team is calling, and the requested quality level, and picks one of several configured models — for example a small fast model for simple lookups, and a large capable model for complex reasoning. The chosen model's name is logged along with the request, so later you can see exactly how much routing actually saved in cost."
+      },
+      {
+        name: 'Response Caching Layer',
+        needed: "You need Redis (or a similar fast key-value store) and a way to generate a cache key from the request — usually a hash of the prompt text plus the model chosen, sometimes using semantic similarity instead of exact-match if you want to catch near-duplicate questions too.",
+        how: "Before the gateway calls any model, it first checks Redis for an existing answer to this exact (or very similar) request. If found, it returns that cached answer immediately — this takes milliseconds instead of seconds and costs nothing. If not found, it calls the model as normal, and then saves the new answer into the cache (usually with an expiry time) so the next similar request can benefit too."
+      },
+      {
+        name: 'Per-User/Per-Team Rate Limiting',
+        needed: "You need a rate-limiting algorithm (token bucket or sliding window works well) tracked per user or per internal team, stored in Redis so it works even if you run multiple copies of the gateway.",
+        how: "Every incoming request first checks: has this user/team already used up their allowed number of requests in the current time window? If yes, the gateway politely rejects the request with a clear 'rate limit exceeded, try again in X seconds' message instead of forwarding it to the (expensive) model. This protects both your cost budget and the fairness of the system between different internal teams."
+      },
+      {
+        name: 'Automatic Fallback Between Providers',
+        needed: "You need to configure at least two different model providers (for example OpenAI and Anthropic, or a hosted model and a self-hosted open-source model via vLLM) so there is always a second option available.",
+        how: "When the gateway calls the primary model and it fails, times out, or is clearly overloaded, the gateway automatically retries the same request against the backup provider instead of just returning an error to the user. The user experience stays smooth even though, behind the scenes, an entire provider went down — this is called graceful degradation and it's a core production-reliability concept."
+      },
+      {
+        name: 'Cost & Usage Dashboard',
+        needed: "You need a database table logging every request — which team made it, which model answered it, how many tokens were used, whether it was a cache hit, and the estimated cost — plus a simple dashboard reading from that table.",
+        how: "Every request that passes through the gateway writes one log row with all these details. A dashboard then aggregates this data to show, for example, 'Team X spent $340 this week, 60% of their requests were cache hits, and 20% were routed to the cheap model.' This is the single most convincing thing you can show an interviewer, because it proves the system is not just working — it's saving real, measurable money."
+      }
+    ],
+    datasets: [
+      {
+        name: 'LiteLLM (open-source LLM gateway project)',
+        desc: 'A real open-source project that already solves a version of this exact problem — unifying dozens of different model providers behind one API. Reading its source code and docs will teach you real patterns for routing, fallback, and cost tracking that you can reimplement yourself to actually understand them (don\'t just import it — build your own version first, then compare).',
+        url: 'https://docs.litellm.ai/docs/'
+      },
+      {
+        name: 'OpenAI & Anthropic API Pricing Pages (live, updated pricing)',
+        desc: 'Both providers publish live, current per-token pricing for each of their models. Use these real numbers in your cost dashboard so the dollar figures your project reports are actually accurate, not made up — this is what makes the "cost saved by routing/caching" metric credible in an interview.',
+        url: 'https://openai.com/api/pricing/'
+      },
+      {
+        name: 'vLLM (for self-hosting an open-source model as your "backup provider")',
+        desc: 'An open-source, high-throughput serving engine for open-source models like Llama or Mistral. Standing up one small self-hosted model with vLLM as your fallback provider (instead of relying only on paid APIs) shows real infrastructure depth beyond just calling someone else\'s API.',
+        url: 'https://docs.vllm.ai/en/latest/'
+      }
+    ]
+  }
+];
+
+function renderRealtimeProjects(){
+  const wrap = document.getElementById('projectsWrap-agentic');
+  if(!wrap) return;
+  wrap.innerHTML = REALTIME_PROJECTS.map(proj=>{
+    const reqHtml = proj.requirements.map((r,i)=>`
+      <div class="req-item">
+        <div class="req-item-title"><span class="req-num mono">${i+1}</span>${r.title}</div>
+        <div class="req-item-body">${r.body}</div>
+      </div>`).join('');
+    const funcHtml = proj.functionalities.map(f=>`
+      <div class="func-item">
+        <div class="func-name">${f.name}</div>
+        <div class="func-sub">
+          <div class="func-sub-label">What's needed</div>
+          <div class="func-sub-body">${f.needed}</div>
+        </div>
+        <div class="func-sub">
+          <div class="func-sub-label how">How it works</div>
+          <div class="func-sub-body">${f.how}</div>
+        </div>
+      </div>`).join('');
+    const dataHtml = proj.datasets.map(d=>`
+      <div class="dataset-item">
+        <div class="dataset-text">
+          <div class="dataset-name">${d.name}</div>
+          <div class="dataset-desc">${d.desc}</div>
+        </div>
+        <a class="dataset-link" href="${d.url}" target="_blank" rel="noopener">Open Dataset →</a>
+      </div>`).join('');
+    const stackHtml = proj.stack.map(s=>`<span class="stack-chip mono">${s}</span>`).join('');
+    return `
+      <div class="project-card">
+        <div class="project-card-head">
+          <div class="project-name">${proj.name}</div>
+          <div class="project-tagline">${proj.tagline}</div>
+          <div class="project-overview">${proj.overview}</div>
+        </div>
+        <div class="project-section">
+          <div class="project-section-title">Tech Stack</div>
+          <div class="stack-row">${stackHtml}</div>
+        </div>
+        <div class="project-section">
+          <div class="project-section-title">Requirements</div>
+          ${reqHtml}
+        </div>
+        <div class="project-section">
+          <div class="project-section-title">Functionality — What's Needed &amp; How It Works</div>
+          ${funcHtml}
+        </div>
+        <div class="project-section">
+          <div class="project-section-title">Realtime Datasets &amp; APIs</div>
+          ${dataHtml}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function initSectionTabs(suffix){
+  const tabs = document.querySelectorAll('#sectionTabs-'+suffix+' .section-tab');
+  tabs.forEach(tab=>{
+    tab.addEventListener('click', ()=>{
+      tabs.forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      const section = tab.dataset.section;
+      tabs.forEach(t=>{
+        const panel = document.getElementById('section-'+t.dataset.section+'-'+suffix);
+        if(panel) panel.style.display = (t.dataset.section===section) ? '' : 'none';
+      });
+    });
+  });
+}
+
+initTrackerApps();
+renderRealtimeProjects();
+renderResumeRefs();
+initSectionTabs('agentic');
+initSectionTabs('resume');
+
+
+</script>
+</body>
+</html>
